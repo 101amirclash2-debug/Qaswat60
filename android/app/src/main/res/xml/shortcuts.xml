@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+      android:shortcutId="live"
+      android:enabled="true"
+      android:shortcutShortLabel="@string/shortcut_live"
+      android:shortcutLongLabel="@string/shortcut_live_long">
+    <intent
+        android:action="android.intent.action.VIEW"
+        android:targetPackage="ai.qaswara.app"
+        android:targetClass="ai.qaswara.app.MainActivity"
+        android:data="file:///android_asset/www/index.html#live" />
+  </shortcut>
+  <shortcut
+      android:shortcutId="files"
+      android:enabled="true"
+      android:shortcutShortLabel="@string/shortcut_files">
+    <intent
+        android:action="android.intent.action.VIEW"
+        android:targetPackage="ai.qaswara.app"
+        android:targetClass="ai.qaswara.app.MainActivity"
+        android:data="file:///android_asset/www/index.html#files" />
+  </shortcut>
+</shortcuts>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="قسورة QASWARA">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#0d2a20"/>
+      <stop offset="55%" stop-color="#050b09"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="60%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#0a6b4c"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0d79a"/>
+      <stop offset="100%" stop-color="#c99f46"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="url(#ring)" stroke-width="8" opacity="0.55"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#gold)" stroke-width="2" opacity="0.65"/>
+  <g fill="none" stroke="#34d399" stroke-width="6" opacity="0.75">
+    <path d="M256 96a160 160 0 0 1 0 320"/>
+    <path d="M256 148a108 108 0 0 1 0 216" opacity="0.55"/>
+  </g>
+  <text x="256" y="300" text-anchor="middle" font-family="'Noto Kufi Arabic','Segoe UI',system-ui,sans-serif"
+        font-size="176" font-weight="700" fill="url(#gold)">ق</text>
+  <text x="256" y="404" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif"
+        font-size="30" letter-spacing="8" fill="#34d399" opacity="0.9">QASWARA</text>
+</svg>

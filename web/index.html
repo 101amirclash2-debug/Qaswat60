@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="قسورة | QASWARA — الوكيل التنفيذي المستقل: عقول سحابية متعددة + جسر محلي على الهاتف ينفّذ فعلياً." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>قسورة · QASWARA</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span>ق</span></div>
+        <div class="brand-text">
+          <h1>قسورة <span class="brand-latin">QASWARA</span></h1>
+          <span class="brand-sub">الوكيل التنفيذي المستقل</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <label class="model-picker" title="اختيار العقل (النموذج)">
+          <select id="modelChoice" aria-label="النموذج"></select>
+        </label>
+        <button id="btnLive" class="chip chip-live" type="button" title="قسورة لايف — صوت وكاميرا وشاشة">
+          <span class="live-dot" aria-hidden="true"></span><span>لايف</span>
+        </button>
+        <button id="btnInternet" class="chip chip-net" type="button" title="مفتاح الإنترنت">
+          <span id="netIcon" aria-hidden="true">🔌</span><span id="netLabel">الإنترنت</span>
+        </button>
+        <button id="btnSafety" class="chip chip-safety" type="button" title="وضع الأمان">
+          <span id="safetyLabel">🛡️ تأكيد</span>
+        </button>
+        <button id="btnMenu" class="icon-btn" type="button" aria-label="القوائم" title="القوائم">☰</button>
+      </div>
+    </header>
+
+    <div class="quickbar" id="quickbar">
+      <button class="quick" data-open="files" type="button">📚 مختبر الملفات</button>
+      <button class="quick" data-open="studio" type="button">🎨 الاستوديو</button>
+      <button class="quick" data-open="apps" type="button">📱 التطبيقات</button>
+      <button class="quick" data-open="device" type="button">🩺 الجهاز</button>
+      <button class="quick" data-open="memory" type="button">🧠 الذاكرة</button>
+    </div>
+
+    <main id="chat" class="chat">
+      <div id="watermark" class="watermark">
+        <div class="watermark-mark" aria-hidden="true">قسورة</div>
+        <p class="watermark-title">وكيلك التنفيذي المستقل على هذا الهاتف</p>
+        <ul class="watermark-list">
+          <li><b>ينفّذ</b> فعلياً على جهازك عبر الجسر المحلي (bash / python / Termux API)</li>
+          <li><b>يشخّص</b> نفسه: يكتشف الأداة أو الصلاحية الناقصة ويثبّتها ثم يكمل</li>
+          <li><b>يقرأ ملفاتك</b> PDF و Word و Excel والصور، ويلخّص ويختبرك</li>
+          <li><b>ينتج</b> مستندات وتقارير وأغاني وصور وفيديو وتطبيقات APK</li>
+          <li><b>يرى ويسمع</b> عبر لايف: كاميرا وشاشة وصوت مباشر بلا يدين</li>
+          <li><b>يتذكّر</b> كل قواعدك ومشاريعك في ذاكرة موحّدة لا نهائية</li>
+        </ul>
+        <p class="watermark-hint">اكتب مهمتك بالأسفل · أو قل «يا قسورة» بعد تفعيل كلمة التنبيه</p>
+      </div>
+
+      <div id="messages" class="messages" aria-live="polite"></div>
+    </main>
+
+    <section id="thinking" class="thinking" hidden aria-live="polite">
+      <header class="thinking-head">
+        <span class="thinking-title">🧠 طريقة التفكير وخطوات العمل الجاري…</span>
+        <span id="thinkingMeta" class="thinking-meta"></span>
+      </header>
+      <ol id="thinkingList" class="thinking-list"></ol>
+      <footer class="thinking-foot">
+        <span id="thinkingNow" class="thinking-now"></span>
+        <button id="btnStop" class="btn-stop" type="button">■ إيقاف</button>
+      </footer>
+    </section>
+
+    <div id="composer" class="composer">
+      <button id="btnAttach" class="icon-btn" type="button" aria-label="إرفاق ملف" title="إرفاق ملف">📎</button>
+      <button id="btnMic" class="icon-btn" type="button" aria-label="إدخال صوتي" title="تحدّث الآن">🎙</button>
+      <textarea id="input" rows="1" maxlength="12000" enterkeyhint="send"
+        placeholder="اكتب مهمتك… (Enter للإرسال · Shift+Enter لسطر جديد)"></textarea>
+      <button id="btnSend" class="btn-send" type="button" aria-label="إرسال">➤</button>
+    </div>
+    <input id="attachInput" type="file" multiple hidden />
+  </div>
+
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <!-- ================= Menu drawer ================= -->
+  <aside id="drawer" class="drawer" hidden aria-label="القوائم">
+    <div class="drawer-head">
+      <h2>قسورة · القوائم</h2>
+      <button class="icon-btn" id="btnCloseDrawer" type="button" aria-label="إغلاق">✕</button>
+    </div>
+    <button id="btnNewSession" class="btn-primary" type="button">＋ محادثة جديدة</button>
+    <nav class="menu-grid">
+      <button class="menu-item" data-open="files" type="button"><span>📚</span> مختبر الملفات</button>
+      <button class="menu-item" data-open="studio" type="button"><span>🎨</span> الاستوديو الإبداعي</button>
+      <button class="menu-item" data-open="apps" type="button"><span>📱</span> استوديو التطبيقات</button>
+      <button class="menu-item" data-open="live" type="button"><span>🔴</span> قسورة لايف</button>
+      <button class="menu-item" data-open="device" type="button"><span>🩺</span> الجهاز والتشخيص</button>
+      <button class="menu-item" data-open="memory" type="button"><span>🧠</span> الذاكرة والتدريب</button>
+      <button class="menu-item" data-open="safety" type="button"><span>🛡️</span> الأمان</button>
+      <button class="menu-item" data-open="settings" type="button"><span>⚙️</span> الإعدادات</button>
+    </nav>
+    <div class="menu-block">
+      <label class="menu-label">الأسلوب</label>
+      <select id="quickStyle"></select>
+      <label class="menu-label">اللهجة</label>
+      <select id="quickDialect"></select>
+    </div>
+    <div class="drawer-section">
+      <h3>المحادثات</h3>
+      <ul id="sessionList" class="session-list"></ul>
+    </div>
+  </aside>
+
+  <!-- ================= Settings ================= -->
+  <section id="modalSettings" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="settingsTitle">الإعدادات</h2>
+        <button class="icon-btn" data-close="modalSettings" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <section class="field-group">
+          <h3 class="group-title">العقل السحابي</h3>
+          <label class="field"><span>المزوّد</span><select id="setProvider"></select></label>
+          <p id="providerNote" class="hint"></p>
+          <label class="field" id="rowCustomBase" hidden>
+            <span>Base URL (OpenAI-compatible)</span>
+            <input id="setBaseUrl" type="url" inputmode="url" placeholder="https://my-host/v1" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>مفتاح API</span>
+            <span class="input-row">
+              <input id="setApiKey" type="password" placeholder="ألصق المفتاح هنا" autocomplete="off" spellcheck="false" dir="ltr" />
+              <button id="btnToggleKey" class="btn-ghost" type="button" aria-label="إظهار/إخفاء المفتاح">👁</button>
+            </span>
+          </label>
+          <p class="hint">يُحفظ في هذا الجهاز فقط ولا يُرسل إلى الجسر.
+            <a id="keyLink" href="#" target="_blank" rel="noopener noreferrer" hidden>احصل على مفتاح</a>
+          </p>
+          <label class="field"><span>النموذج</span>
+            <input id="setModel" type="text" list="modelList" dir="ltr" autocomplete="off" spellcheck="false" placeholder="اسم النموذج" />
+            <datalist id="modelList"></datalist>
+          </label>
+          <div class="btn-row"><button id="btnTestConnection" class="btn-primary" type="button">حفظ واختبار الاتصال 🟢</button></div>
+          <p id="testResult" class="result" hidden></p>
+        </section>
+
+        <section class="field-group">
+          <h3 class="group-title">الجسر المحلي (يد قسورة)</h3>
+          <label class="field"><span>عنوان الجسر</span>
+            <input id="setBridgeUrl" type="text" dir="ltr" autocomplete="off" spellcheck="false" placeholder="auto أو http://127.0.0.1:8080" /></label>
+          <label class="field"><span>رمز الجسر (Token)</span>
+            <input id="setBridgeToken" type="password" dir="ltr" autocomplete="off" spellcheck="false" placeholder="يُطبع عند تشغيل الجسر في Termux" /></label>
+          <p class="hint">شغّل الجسر: <code>python bridge/qaswara_bridge.py</code> ثم انسخ الرمز الظاهر.</p>
+          <div class="btn-row"><button id="btnTestBridge" class="btn-ghost" type="button">اختبار الجسر</button>
+            <button id="btnDeviceRefresh" class="btn-ghost" type="button">فحص الجهاز</button></div>
+          <p id="bridgeResult" class="result" hidden></p>
+        </section>
+
+        <section class="field-group">
+          <h3 class="group-title">الأسلوب واللهجة</h3>
+          <label class="field"><span>أسلوب الرد</span><select id="setStyle"></select></label>
+          <label class="field"><span>اللهجة المفهومة</span><select id="setDialect"></select></label>
+          <p class="hint">قسورة يفهم الفصحى واليمني والعدني والخليجي والمصري والشامي والعراقي والمغربي، ويجيب بلهجتك عند اختيارها.</p>
+        </section>
+
+        <section class="field-group">
+          <h3 class="group-title">الصوت</h3>
+          <label class="field check-row"><input id="setVoiceEnabled" type="checkbox" /><span>نطق ردود قسورة تلقائياً</span></label>
+          <label class="field"><span>الصوت</span><select id="setVoiceName"></select></label>
+          <label class="field"><span>سرعة الكلام <b id="rateValue">1.0x</b></span>
+            <input id="setVoiceRate" type="range" min="0.5" max="2" step="0.1" /></label>
+          <label class="field"><span>حِدّة الصوت <b id="pitchValue">1.0</b></span>
+            <input id="setVoicePitch" type="range" min="0" max="2" step="0.1" /></label>
+          <div class="btn-row"><button id="btnTestVoice" class="btn-ghost" type="button">تجربة الصوت</button></div>
+          <label class="field"><span>كلمة التنبيه</span>
+            <input id="setWakeWord" type="text" placeholder="يا قسورة" /></label>
+          <div class="btn-row"><button id="btnWakeToggle" class="btn-ghost" type="button">تفعيل الاستماع لكلمة التنبيه</button></div>
+          <p id="wakeStatus" class="hint"></p>
+        </section>
+
+        <section class="field-group">
+          <h3 class="group-title">السلوك والخصوصية</h3>
+          <label class="field"><span>وضع الأمان</span><select id="setSafetyMode"></select></label>
+          <div class="grid-3">
+            <label class="field"><span>أقصى خطوات</span><input id="setMaxSteps" type="number" min="1" max="20" step="1" /></label>
+            <label class="field"><span>الحرارة</span><input id="setTemperature" type="number" min="0" max="2" step="0.1" /></label>
+            <label class="field"><span>حد المخرجات</span><input id="setMaxTokens" type="number" min="256" max="8192" step="128" /></label>
+          </div>
+          <label class="field"><span>عدد الرسائل المحفوظة في السياق</span><input id="setHistoryWindow" type="number" min="2" max="40" step="1" /></label>
+          <label class="field check-row"><input id="setScrubSecrets" type="checkbox" /><span>درع الخصوصية: حجب المفاتيح والأسرار قبل أي إرسال</span></label>
+          <label class="field"><span>مسار مساحة العمل على الهاتف</span>
+            <input id="setWorkspaceRoot" type="text" dir="ltr" spellcheck="false" placeholder="/sdcard/Qaswara_Workspace" /></label>
+        </section>
+
+        <section class="field-group">
+          <h3 class="group-title">البيانات</h3>
+          <div class="btn-row wrap">
+            <button id="btnExport" class="btn-ghost" type="button">تصدير نسخة</button>
+            <button id="btnImport" class="btn-ghost" type="button">استيراد نسخة</button>
+            <input id="importFile" type="file" accept="application/json,.json" hidden />
+            <button id="btnClearAll" class="btn-danger" type="button">مسح كل البيانات</button>
+          </div>
+          <p class="hint" id="aboutLine"></p>
+        </section>
+      </div>
+      <footer class="modal-foot"><button id="btnSaveSettings" class="btn-primary" type="button">حفظ</button></footer>
+    </div>
+  </section>
+
+  <!-- ================= Memory ================= -->
+  <section id="modalMemory" class="modal" role="dialog" aria-modal="true" aria-labelledby="memoryTitle" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="memoryTitle">ذاكرة قسورة وتدريبه</h2>
+        <button class="icon-btn" data-close="modalMemory" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <section class="field-group">
+          <h3 class="group-title">القواعد الدائمة</h3>
+          <p class="hint">تُضاف إلى كل محادثة. مثال: «أجب بالعربية دائماً، وابدأ كل تقرير بجدول ملخص، ولا تحذف ملفاً دون نسخة احتياطية».</p>
+          <textarea id="personaRules" rows="5" placeholder="اكتب هنا قواعدك وأسلوب عملك…"></textarea>
+          <div class="btn-row"><button id="btnSavePersona" class="btn-primary" type="button">حفظ القواعد</button></div>
+        </section>
+        <section class="field-group">
+          <h3 class="group-title">إضافة ذاكرة</h3>
+          <div class="input-row">
+            <select id="newMemoryKind">
+              <option value="rule">قاعدة</option>
+              <option value="preference">تفضيل</option>
+              <option value="skill">مهارة</option>
+              <option value="project">مشروع</option>
+              <option value="fact" selected>معلومة</option>
+            </select>
+            <input id="newMemoryInput" type="text" placeholder="ما الذي يجب أن يتذكره قسورة دائماً؟" />
+            <button id="btnAddMemory" class="btn-ghost" type="button">إضافة</button>
+          </div>
+          <p class="hint">أو اكتب في المحادثة: «تذكر دائماً …» / «أضف هذه المهارة …».</p>
+        </section>
+        <section class="field-group">
+          <div class="group-head">
+            <h3 class="group-title">الذاكرة الموحّدة</h3>
+            <button id="btnSyncMemory" class="btn-ghost small" type="button">مزامنة مع الجسر</button>
+          </div>
+          <input id="memoryFilter" type="search" placeholder="بحث في الذاكرة…" />
+          <ul id="memoryList" class="memory-list"></ul>
+          <p id="memoryStatus" class="hint"></p>
+        </section>
+      </div>
+      <footer class="modal-foot"><button class="btn-ghost" data-close="modalMemory" type="button">إغلاق</button></footer>
+    </div>
+  </section>
+
+  <!-- ================= Safety ================= -->
+  <section id="modalSafety" class="modal" role="dialog" aria-modal="true" aria-labelledby="safetyTitle" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="safetyTitle">الأمان والتحكم</h2>
+        <button class="icon-btn" data-close="modalSafety" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <p class="hint">يحدّد هذا الوضع ما يُسمح لقصوره بفعله على هاتفك.</p>
+        <div id="safetyOptions" class="safety-options"></div>
+        <p id="safetyWarning" class="warning" hidden>⚠️ في وضع التنفيذ التلقائي لن تُسأل قبل كل أمر. الأوامر عالية الخطورة ستبقى محجوبة من الجسر، لكن راجع ما يعمل عليه قسورة.</p>
+      </div>
+      <footer class="modal-foot">
+        <button class="btn-ghost" data-close="modalSafety" type="button">إلغاء</button>
+        <button id="btnApplySafety" class="btn-primary" type="button">تأكيد الوضع</button>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ================= Command confirmation ================= -->
+  <section id="modalConfirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="confirmTitle">تأكيد تنفيذ</h2>
+        <span id="confirmRisk" class="risk-badge">—</span>
+      </header>
+      <div class="modal-body">
+        <p class="hint" id="confirmMeta" dir="auto"></p>
+        <pre id="confirmCode" class="code-block" dir="ltr"></pre>
+        <ul id="confirmReasons" class="reason-list"></ul>
+        <label class="check-row"><input id="confirmAutoAll" type="checkbox" />
+          <span>السماح بكل أوامر هذه المهمة دون سؤال (الخطير يبقى يتطلب تأكيداً)</span></label>
+      </div>
+      <footer class="modal-foot">
+        <button id="btnConfirmRun" class="btn-primary" type="button">تنفيذ ✓</button>
+        <button id="btnConfirmSkip" class="btn-ghost" type="button">رفض</button>
+        <button id="btnConfirmStop" class="btn-danger" type="button">إيقاف المهمة</button>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ================= Internet switch ================= -->
+  <section id="modalInternet" class="modal" role="dialog" aria-modal="true" aria-labelledby="internetTitle" hidden>
+    <div class="modal-card narrow">
+      <header class="modal-head">
+        <h2 id="internetTitle">مفتاح الإنترنت</h2>
+        <button class="icon-btn" data-close="modalInternet" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <p class="hint" id="internetText"></p>
+        <p class="warning">عند الإغلاق يتوقف كل اتصال بالعقول السحابية فوراً؛ يبقى الجسر المحلي وأدوات الجهاز يعملان دون إنترنت.</p>
+      </div>
+      <footer class="modal-foot">
+        <button class="btn-ghost" data-close="modalInternet" type="button">إلغاء</button>
+        <button id="btnInternetConfirm" class="btn-primary" type="button">تأكيد</button>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ================= Live ================= -->
+  <section id="modalLive" class="modal modal-live" role="dialog" aria-modal="true" aria-labelledby="liveTitle" hidden>
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="liveTitle">🔴 قسورة لايف</h2>
+        <button class="icon-btn" data-close="modalLive" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body live-body">
+        <div class="live-stage">
+          <video id="liveVideo" playsinline muted></video>
+          <div id="livePlaceholder" class="live-placeholder">اختر مصدراً: كاميرا أمامية/خلفية، أو مشاركة الشاشة.</div>
+          <canvas id="liveCanvas" hidden></canvas>
+        </div>
+        <div class="live-controls">
+          <button id="btnLiveRear" class="btn-ghost" type="button">📷 خلفية</button>
+          <button id="btnLiveFront" class="btn-ghost" type="button">🤳 أمامية</button>
+          <button id="btnLiveScreen" class="btn-ghost" type="button">🖥 مشاركة الشاشة</button>
+          <button id="btnLiveBridgeShot" class="btn-ghost" type="button">📸 التقاط عبر الجسر</button>
+          <button id="btnLiveStop" class="btn-danger" type="button">■ إيقاف المصدر</button>
+        </div>
+        <label class="check-row"><input id="liveTranslate" type="checkbox" /><span>ترجمة فورية لكل نص في الصورة</span></label>
+        <label class="check-row"><input id="liveVoice" type="checkbox" checked /><span>رد صوتي فوري (مع إمكانية المقاطعة)</span></label>
+        <div class="input-row">
+          <input id="liveQuestion" type="text" placeholder="اسأل عمّا تراه… (اتركه فارغاً للوصف التلقائي)" />
+          <button id="btnLiveAsk" class="btn-primary" type="button">اسأل الآن</button>
+        </div>
+        <div class="btn-row">
+          <button id="btnLiveAuto" class="btn-ghost" type="button">▶︎ تحليل مستمر (كل ٤ ثوانٍ)</button>
+          <button id="btnLiveMic" class="btn-ghost" type="button">🎙 اسأل بصوتك</button>
+        </div>
+        <pre id="liveAnswer" class="live-answer" dir="auto"></pre>
+        <p id="liveStatus" class="hint"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Files lab ================= -->
+  <section id="modalFiles" class="modal" role="dialog" aria-modal="true" aria-labelledby="filesTitle" hidden>
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="filesTitle">📚 مختبر الملفات</h2>
+        <button class="icon-btn" data-close="modalFiles" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="btn-row wrap">
+          <button id="btnFilesPick" class="btn-primary" type="button">＋ أضف ملفات (PDF · Word · Excel · نص · كود · صور · صوت)</button>
+          <button id="btnFilesClear" class="btn-ghost" type="button">إفراغ</button>
+          <button id="btnFilesSummary" class="btn-ghost" type="button">لخّص</button>
+          <button id="btnFilesTables" class="btn-ghost" type="button">استخرج الجداول والحقول</button>
+          <button id="btnFilesQuiz" class="btn-primary" type="button">اختبرني 🎯</button>
+        </div>
+        <input id="filesInput" type="file" multiple hidden />
+        <ul id="filesList" class="file-list"></ul>
+        <p id="filesStatus" class="hint"></p>
+        <div id="quizBox" class="quiz-box" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Studio ================= -->
+  <section id="modalStudio" class="modal" role="dialog" aria-modal="true" aria-labelledby="studioTitle" hidden>
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="studioTitle">🎨 الاستوديو الإبداعي</h2>
+        <button class="icon-btn" data-close="modalStudio" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="tabs" id="studioTabs">
+          <button class="tab active" data-tab="image" type="button">صورة</button>
+          <button class="tab" data-tab="song" type="button">أغنية</button>
+          <button class="tab" data-tab="video" type="button">فيديو</button>
+          <button class="tab" data-tab="doc" type="button">مستند</button>
+        </div>
+
+        <div class="tab-panel" data-panel="image">
+          <label class="field"><span>وصف الصورة</span><input id="imgPrompt" type="text" placeholder="غلاف أسود بخط عربي ذهبي، إضاءة سينمائية…" /></label>
+          <div class="btn-row"><button id="btnGenImage" class="btn-primary" type="button">توليد صورة عالية الدقة</button></div>
+          <div id="imageResult" class="media-result"></div>
+        </div>
+
+        <div class="tab-panel" data-panel="song" hidden>
+          <label class="field"><span>عنوان الأغنية</span><input id="songTitle" type="text" placeholder="نشيد قسورة" /></label>
+          <label class="field"><span>الكلمات (كل سطر جملة)</span><textarea id="songLyrics" rows="5" placeholder="اكتب الكلمات… أو اطلب من قسورة كتابتها في المحادثة"></textarea></label>
+          <div class="grid-3">
+            <label class="field"><span>السرعة (BPM)</span><input id="songBpm" type="number" min="50" max="180" value="92" /></label>
+            <label class="field"><span>المدة (ثانية)</span><input id="songSeconds" type="number" min="6" max="300" value="24" /></label>
+            <label class="field"><span>المقام</span>
+              <select id="songScale"><option value="hijaz">حجاز</option><option value="nahawand" selected>نهاوند</option><option value="rast">راست</option><option value="major">ماجور</option><option value="minor">مينور</option></select></label>
+          </div>
+          <label class="check-row"><input id="songVocals" type="checkbox" checked /><span>إضافة غناء (espeak + مزج ffmpeg)</span></label>
+          <div class="btn-row"><button id="btnGenSong" class="btn-primary" type="button">تأليف وإنتاج الأغنية</button></div>
+          <div id="songResult" class="media-result"></div>
+        </div>
+
+        <div class="tab-panel" data-panel="video" hidden>
+          <label class="field"><span>عنوان الفيديو</span><input id="videoTitle" type="text" placeholder="qaswara_video" /></label>
+          <label class="field"><span>مسارات الصور (سطر لكل مسار داخل مساحة العمل)</span><textarea id="videoImages" rows="3" placeholder="artifacts/image_1.png"></textarea></label>
+          <label class="field"><span>ملف الصوت (اختياري)</span><input id="videoAudio" type="text" dir="ltr" placeholder="artifacts/نشيد.mp3" /></label>
+          <div class="btn-row"><button id="btnGenVideo" class="btn-primary" type="button">إنتاج MP4</button></div>
+          <div id="videoResult" class="media-result"></div>
+        </div>
+
+        <div class="tab-panel" data-panel="doc" hidden>
+          <div class="grid-3">
+            <label class="field"><span>النوع</span>
+              <select id="docKind"><option value="xlsx">Excel</option><option value="docx">Word</option><option value="pdf">PDF</option><option value="csv">CSV</option><option value="md">Markdown</option><option value="html">HTML</option><option value="rtf">RTF</option><option value="zip">ZIP</option></select></label>
+            <label class="field"><span>اسم الملف</span><input id="docPath" type="text" dir="ltr" placeholder="artifacts/report.xlsx" /></label>
+            <label class="field"><span>العنوان</span><input id="docTitle" type="text" placeholder="تقرير المشروع" /></label>
+          </div>
+          <label class="field"><span>المحتوى (Markdown/CSV: أسطر · جدول: صفوف بأعمدة |)</span>
+            <textarea id="docBody" rows="6" placeholder="الاسم | المبلغ&#10;أحمد | 120"></textarea></label>
+          <div class="btn-row"><button id="btnGenDoc" class="btn-primary" type="button">إنشاء الملف</button></div>
+          <div id="docResult" class="media-result"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= App studio ================= -->
+  <section id="modalApps" class="modal" role="dialog" aria-modal="true" aria-labelledby="appsTitle" hidden>
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="appsTitle">📱 استوديو التطبيقات و APK</h2>
+        <button class="icon-btn" data-close="modalApps" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <label class="field"><span>اسم التطبيق</span><input id="appName" type="text" value="QaswaraApp" dir="ltr" /></label>
+        <div class="tabs" id="appTabs">
+          <button class="tab active" data-apptab="html" type="button">HTML</button>
+          <button class="tab" data-apptab="css" type="button">CSS</button>
+          <button class="tab" data-apptab="js" type="button">JS</button>
+        </div>
+        <textarea id="appCode" rows="8" dir="ltr" spellcheck="false" placeholder="<h1>مرحبا من قسورة</h1>"></textarea>
+        <div class="btn-row wrap">
+          <button id="btnAppPreview" class="btn-ghost" type="button">تحديث المعاينة</button>
+          <button id="btnAppAudit" class="btn-ghost" type="button">🛡️ تدقيق Artemis</button>
+          <button id="btnAppBundle" class="btn-ghost" type="button">📦 حزمة ويب (ZIP)</button>
+          <button id="btnAppApk" class="btn-primary" type="button">📦 تصدير وتثبيت كـ APK</button>
+        </div>
+        <div class="preview-frame">
+          <iframe id="appPreview" sandbox="allow-scripts allow-forms allow-modals" title="معاينة التطبيق"></iframe>
+        </div>
+        <pre id="appResult" class="live-answer" dir="auto"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Device / diagnostics ================= -->
+  <section id="modalDevice" class="modal" role="dialog" aria-modal="true" aria-labelledby="deviceTitle" hidden>
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="deviceTitle">🩺 وعي قسورة بجهازه</h2>
+        <button class="icon-btn" data-close="modalDevice" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="btn-row wrap">
+          <button id="btnDeviceScan" class="btn-primary" type="button">فحص الآن</button>
+          <button id="btnDeviceInstallAll" class="btn-ghost" type="button">ثبّت كل الناقص تلقائياً</button>
+        </div>
+        <div id="deviceSummary" class="device-summary"></div>
+        <ul id="deviceAdvice" class="advice-list"></ul>
+        <pre id="deviceRaw" class="live-answer" dir="ltr" hidden></pre>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

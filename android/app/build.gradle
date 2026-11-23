@@ -1,0 +1,35 @@
+plugins { id 'com.android.application' }
+
+android {
+  namespace 'ai.qaswara.app'
+  compileSdk 35
+
+  defaultConfig {
+    applicationId 'ai.qaswara.app'
+    minSdk 24
+    targetSdk 35
+    versionCode 20000
+    versionName '2.0.0'
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      signingConfig signingConfigs.debug
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  // The web UI is copied into assets/www by the build script / CI workflow.
+  sourceSets {
+    main { assets.srcDirs = ['src/main/assets'] }
+  }
+
+  packagingOptions {
+    resources.excludes += ['META-INF/*']
+  }
+}

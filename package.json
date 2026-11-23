@@ -1,0 +1,20 @@
+{
+  "name": "qaswara",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "قسورة | QASWARA — الوكيل التنفيذي المستقل: عقول سحابية متعددة + جسر محلي على Android/Termux مع حلقة ReAct حقيقية.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "python3 bridge/qaswara_bridge.py --no-auth",
+    "bridge": "python3 bridge/qaswara_bridge.py",
+    "test:bridge": "python3 -m unittest discover -s tests -p 'test_*.py' -v",
+    "mock": "node tools/mock-provider.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.1"
+  }
+}

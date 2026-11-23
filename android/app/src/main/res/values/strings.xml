@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">قسورة | QASWARA</string>
+  <string name="shortcut_live">قسورة لايف</string>
+  <string name="shortcut_live_long">افتح الكاميرا والتحليل الفوري</string>
+  <string name="shortcut_files">مختبر الملفات</string>
+</resources>
