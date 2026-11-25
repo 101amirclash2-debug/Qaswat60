@@ -1,0 +1,10 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+
+# Generated install packages and ephemeral Drive downloads
+artifacts/
+google_drive/

@@ -1,76 +1,32 @@
-Codespaces Android SDK CE (Community Edition)
----------------------------------------------
+# فاحص كار — Android APK
 
-A codespace repository configured to install android
-development tools.
+تطبيق أندرويد عربي لقراءة بيانات OBD-II الحقيقية من محولات ELM327 عبر Bluetooth Classic / SPP. لا يحتوي على بيانات سيارات تجريبية ولا يولّد أعطالاً أو قراءات من عنده: كل قراءة معروضة مصدرها رد وحدة التحكم في السيارة، وما لا يرسله المحول يظهر كغير متاح.
 
-## Installed Software
+## ما يقرأه
 
-    * Ubuntu
-    * Bazelisk
-    * Gradle
-    * Maven
-    * Ant
-    * Meson (FIXME **archived feature unavailable**)
-    * Java 25 (Oracle)
-    * Android SDK
+- هوية محول ELM327 وحالة اتصال Bluetooth الفعلية.
+- أكواد OBD-II المخزنة (Mode 03)، المعلقة (Mode 07)، والدائمة (Mode 0A) عند دعم وحدة التحكم لها.
+- لمبة MIL وعدد الأكواد من PID 01، ورقم VIN إن أرسلته السيارة.
+- قراءات المحرك والانبعاثات القياسية المتاحة، مثل RPM والسرعة والحرارة والحمل والجهد وتصحيحات الوقود.
+- سجل محلي للسيارات وتقارير الفحص، مع مشاركة ملخص التقرير.
 
-## Usage
+## حدود مهمة
 
-This repository can be used to create a codespace,
-by using it as a template for new projects, or
-including it as a submodule in an existing project.
+هذا قارئ OBD-II عام، وليس فاحصاً شاملاً لكل وحدات السيارة. لا يدّعي قراءة ABS أو SRS/airbag أو وحدات الهيكل/ناقل الحركة الخاصة بالشركة المصنّعة؛ يلزم لهذه الأنظمة محول/برنامج OEM متوافق. شرح الكود إرشادي ولا يثبت تلف قطعة، وظهور «لا توجد أكواد» لا يعني أن جميع أنظمة المركبة سليمة. لا توجد وظيفة لمسح الأكواد.
 
-To import as a submodule use 'git submodule add'
+## المحول والتشغيل
 
-    git submodule add https://github.com/raymond-chetty/codespaces-AndroidSDK-CE .devcontainer
+- النسخة الحالية تستهدف محولات ELM327 ذات Bluetooth Classic (RFCOMM/SPP). يجب إقران المحول أولاً من إعدادات Bluetooth في الهاتف، ثم اختياره من داخل التطبيق.
+- لا تدعم هذه النسخة محولات BLE أو Wi-Fi؛ إن كان محولك من هذا النوع نحتاج موديله/بروتوكوله قبل توسيع الاتصال.
+- وصّل المحول بمنفذ OBD-II، شغّل الإشعال، وثبّت السيارة بأمان. لا تراقب الشاشة أثناء القيادة.
+- الأذونات المطلوبة: Bluetooth Connect فقط على Android 12+؛ لا يطلب التطبيق الموقع أو الإنترنت.
 
-In theory it is possible to add access to additional
-repositories within a codespace using 'customizations'
+## بناء APK
 
-  * https://containers.dev/supporting#github-codespaces
-  * https://docs.github.com/en/codespaces/managing-your-codespaces/managing-repository-access-for-your-codespaces
+```bash
+gradle :app:testDebugUnitTest :app:assembleDebug
+```
 
-## devcontainer.json
+الناتج: `app/build/outputs/apk/debug/app-debug.apk`. هذا APK تجريبي موقّع بمفتاح debug للتثبيت المباشر، وليس إصدار متجر Google Play.
 
-The original devcontainer.json file was created using the
-VS Code [codespaces configuration wizard][1].
-
-Press "F1" or "Ctr + Shift + P" in [VS Code Codespaces][2]
-and select "Codespaces: Add Dev Container Configuration Files...".
-
-## Additional information
-
-Additional information about [VS Code][3], the [UI][4],
-[Dev Containers][5] and [VS Code Dev Containers][6] ([Extention][7])
-is available online. Devcontainers are available on the most
-common operating systems and the web ([1][8] & [2][9])!
-
-Before getting started it might also be helpful to add Copilot [repository custom instructions & prompt files][13], even with the [free][14] plan! More advanced users might also be interested in personalizing their dev containers with [dotfiles][12].
-
-If you want to get started with Java development you can use this
-["Maven in 5 Minues"][10] documentation to learn the basics in 5
-minutes! Just run the commands listed in the terminal to get
-started. You can search online for similar resources about 
-the other tools or [further information][11].
-
-[1]: https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers#using-a-predefined-dev-container-configuration
-
-[2]: https://code.visualstudio.com/docs/remote/codespaces
-[3]: https://code.visualstudio.com/
-[4]: https://code.visualstudio.com/docs/getstarted/userinterface
-[5]: https://containers.dev/
-[6]: https://code.visualstudio.com/docs/devcontainers/containers
-[7]: https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers
-
-[8]: https://github.com/features/codespaces
-[9]: https://docs.github.com/en/codespaces/
-
-[10]: https://maven.apache.org/guides/getting-started/maven-in-five-minutes.html
-[11]: https://cs61a.org
-[12]: https://docs.github.com/en/codespaces/setting-your-user-preferences/personalizing-github-codespaces-for-your-account
-[13]: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
-[14]: https://docs.github.com/en/copilot/get-started/plans
-
-
-
+يتولى GitHub Actions تشغيل اختبارات محلل OBD وبناء APK ورفع الناتج كـ artifact عند الدفع إلى الفرع.
