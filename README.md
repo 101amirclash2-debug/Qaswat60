@@ -27,6 +27,6 @@
 gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
-الناتج: `app/build/outputs/apk/debug/app-debug.apk`. هذا APK تجريبي موقّع بمفتاح debug للتثبيت المباشر، وليس إصدار متجر Google Play.
+الناتج: `app/build/outputs/apk/debug/app-debug.apk`. أُرفق البناء الحالي أيضاً في `artifacts/FahesCar-1.0.0.apk`. هذا APK موقّع بمفتاح debug للتثبيت المباشر، وليس إصدار متجر Google Play.
 
 يتولى GitHub Actions تشغيل اختبارات محلل OBD وبناء APK ورفع الناتج كـ artifact عند الدفع إلى الفرع.
