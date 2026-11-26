@@ -868,3 +868,42 @@ kbd {
   backdrop-filter: blur(12px);
 }
 .lock-hint.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+/* ================= install card (intro) ================= */
+.install-card {
+  grid-column: 1 / -1;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(214, 236, 206, 0.16);
+  background: rgba(9, 19, 13, 0.55);
+  backdrop-filter: blur(14px);
+  animation: riseIn 1.1s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.install-head { display: flex; align-items: center; gap: 10px; }
+.install-head strong { display: block; font-size: 13px; }
+.install-head small { display: block; font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
+.install-badge {
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #0b1a12;
+  background: linear-gradient(135deg, #b9eb9d, #6cc05a);
+}
+.install-body { display: flex; gap: 14px; align-items: center; margin-top: 12px; }
+#apk-qr {
+  border-radius: 10px;
+  flex: none;
+  width: 108px;
+  height: 108px;
+  border: 1px solid rgba(214, 236, 206, 0.2);
+}
+.install-links { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+.install-links .btn { text-decoration: none; text-align: center; }
+.install-note { margin: 2px 0 0; font-size: 10px; line-height: 1.7; color: var(--ink-faint); max-width: 260px; }
+
+@media (max-width: 980px) {
+  .install-card { order: 3; }
+}

@@ -19,6 +19,7 @@
   "devDependencies": {
     "eslint": "^9.39.5",
     "globals": "^17.14.0",
+    "qrcode": "^1.5.4",
     "sharp": "^0.35.5",
     "vite": "^6.4.6"
   }

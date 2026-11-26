@@ -29,6 +29,9 @@ html = html.replace(/<script[^>]*src="([^"]+)"[^>]*><\/script>/g, (_m, src) => {
   return `<script type="module">\n${code}\n</script>`;
 });
 
+// the QR/APK links only exist on the hosted site: keep the buttons but drop the QR
+html = html.replace(/<img id="apk-qr"[^>]*>/g, "");
+
 // collect image data URIs
 const sceneDir = "public/scene";
 const images = {};
