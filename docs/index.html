@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1a12" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="واحة الجبل" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <script src="./standalone.js"></script>
+    <title>واحة الجبل المعلّقة — تجول ثلاثي الأبعاد</title>
+    <meta name="description" content="تجربة تجول افتراضي ثلاثية الأبعاد داخل مزرعة موز جبلية: ممر ترابي، حقل موز كثيف، سفوح مشجرة، وقمم صخرية شاهقة." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f2a1c'/%3E%3Cpath d='M32 10c10 0 18 8 18 18S42 54 32 54 14 38 14 28s8-18 18-18z' fill='%236fbf5a'/%3E%3Cpath d='M32 14v34' stroke='%232b5c33' stroke-width='3'/%3E%3C/svg%3E" />
+    <script type="module" crossorigin src="./assets/index-B6DU9B8V.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/style-BG2AjI5E.css">
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <!-- ============ شاشة البداية ============ -->
+      <section id="intro" class="screen">
+        <div class="intro-photo" aria-hidden="true"></div>
+        <div class="intro-veil" aria-hidden="true"></div>
+        <div class="intro-inner">
+          <div class="intro-copy">
+            <p class="kicker">تجربة تجول افتراضي · محاكاة بيئية ثلاثية الأبعاد</p>
+            <h1>واحة الجبل المعلّقة</h1>
+            <h2>حديقة الموز والقمم الصخرية</h2>
+            <p class="lede">
+              نهار مشمس صافٍ فوق ممر ترابي ضيّق. تتقدّم بين الأعشاب الغضّة إلى قلب حقل موز كثيف،
+              ثم تنفتح عليك السفوح المشجرة والقمم الصخرية الشاهقة. تنقّل بحرية، أو دع الجولة الموجّهة
+              تأخذك عبر المحطات الخمس.
+            </p>
+            <div class="intro-actions">
+              <button id="btn-enter" class="btn primary" disabled>
+                <span class="btn-label">جارٍ تهيئة الوادي…</span>
+              </button>
+              <button id="btn-tour" class="btn ghost" disabled>الجولة الموجّهة</button>
+              <button id="btn-help-intro" class="btn ghost">دليل التحكم</button>
+            </div>
+            <div class="loader">
+              <div class="loader-track"><div id="loader-bar"></div></div>
+              <div class="loader-meta">
+                <span id="loader-text">تحميل المشهد…</span>
+                <span id="loader-pct">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="intro-strip" aria-hidden="true">
+            <figure><img src="/scene/46217.jpg" alt="" /><figcaption>الممر الترابي والقمم</figcaption></figure>
+            <figure><img src="/scene/46211.jpg" alt="" /><figcaption>حقل الموز والسفوح</figcaption></figure>
+            <figure><img src="/scene/46216.jpg" alt="" /><figcaption>غطاء عشبي ليفي</figcaption></figure>
+            <figure><img src="/scene/46214.jpg" alt="" /><figcaption>قطرات على نصل الموز</figcaption></figure>
+          </div>
+        </div>
+        <ul class="facts">
+          <li><b>01</b> ممر التربة والرطوبة</li>
+          <li><b>02</b> دورة نمو الموز</li>
+          <li><b>03</b> الأعشاب المثبِّتة</li>
+          <li><b>04</b> سفوح الأشجار</li>
+          <li><b>05</b> القمم والحاجز المناخي</li>
+        </ul>
+        <div class="intro-credit">محاكاة إجرائية بالكامل · تضاريس ونباتات وخامات مولّدة في المتصفح</div>
+      </section>
+
+      <!-- ============ الواجهة أثناء التجول ============ -->
+      <div id="hud" class="hidden">
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-dot"></span>
+            <div>
+              <strong>واحة الجبل المعلّقة</strong>
+              <small id="zone-label">المدخل الترابي</small>
+            </div>
+          </div>
+          <div class="tools">
+            <button class="tool" data-action="tour" title="الجولة الموجّهة">جولة</button>
+            <button class="tool" data-action="free" title="التجول الحر">حر</button>
+            <button class="tool" data-action="sound" title="الصوت">🔊</button>
+            <button class="tool" data-action="photo" title="وضع التصوير">📷</button>
+            <button class="tool" data-action="atlas" title="أطلس الوادي">🗺</button>
+            <button class="tool" data-action="settings" title="الإعدادات">⚙</button>
+            <button class="tool" data-action="help" title="المساعدة">؟</button>
+          </div>
+        </header>
+
+        <div id="crosshair"><span></span></div>
+
+        <button id="lock-hint" class="lock-hint">انقر على المشهد للنظر حولك</button>
+
+        <div id="prompt" class="prompt hidden">
+          <kbd>E</kbd><span id="prompt-text">تفاعل</span>
+        </div>
+
+        <div id="compass" class="compass" aria-hidden="true">
+          <div class="compass-strip"></div>
+          <div class="compass-mark"></div>
+        </div>
+
+        <div id="zone-toast" class="zone-toast"></div>
+
+        <div class="bottom-bar">
+          <div class="hint">
+            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حركة</span>
+            <span><kbd>Shift</kbd> جري</span>
+            <span><kbd>E</kbd> تفاعل</span>
+            <span>🖱️ نظر</span>
+          </div>
+          <div class="stats"><span id="fps">–</span> إطار/ث</div>
+        </div>
+      </div>
+
+      <!-- ============ بطاقة المعلومات ============ -->
+      <aside id="panel" class="panel hidden" dir="rtl" aria-live="polite">
+        <button id="panel-close" class="panel-close" aria-label="إغلاق">✕</button>
+        <div class="panel-scroll">
+          <div class="panel-media">
+            <img id="panel-img" alt="" />
+            <div class="panel-media-tag" id="panel-tag">محطة</div>
+          </div>
+          <div class="panel-body">
+            <p class="panel-eyebrow" id="panel-eyebrow">تحليل ميداني</p>
+            <h3 id="panel-title">—</h3>
+            <p id="panel-desc" class="panel-desc"></p>
+            <div id="panel-diagram" class="diagram"></div>
+            <ul id="panel-points" class="points"></ul>
+            <div id="panel-meta" class="meta-grid"></div>
+          </div>
+        </div>
+        <footer class="panel-foot">
+          <button id="panel-next" class="btn small">المحطة التالية ←</button>
+          <span id="panel-count">1 / 5</span>
+        </footer>
+      </aside>
+
+      <!-- ============ نافذة المساعدة ============ -->
+      <div id="help" class="modal hidden">
+        <div class="modal-card">
+          <button class="modal-close" data-close="help">✕</button>
+          <h3>دليل التحكم</h3>
+          <div class="help-grid">
+            <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><p>المشي في الوادي</p></div>
+            <div><kbd>Shift</kbd><p>الجري الخفيف</p></div>
+            <div><span class="mouse">🖱️</span><p>النظر · انقر لقفل المؤشر</p></div>
+            <div><kbd>E</kbd><p>تفاعل مع المحطة القريبة</p></div>
+            <div><kbd>Esc</kbd><p>إيقاف الجولة / فك المؤشر</p></div>
+            <div><kbd>T</kbd><p>الجولة الموجّهة</p></div>
+            <div><kbd>P</kbd><p>وضع التصوير</p></div>
+            <div><kbd>M</kbd><p>كتم الصوت</p></div>
+          </div>
+          <p class="help-note">
+            على الجوال: اسحب في النصف الأيسر للحركة، وفي النصف الأيمن للنظر، واضغط زر التفاعل عند ظهور المحطة.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ الإعدادات ============ -->
+      <div id="settings" class="modal hidden">
+        <div class="modal-card">
+          <button class="modal-close" data-close="settings">✕</button>
+          <h3>الإعدادات</h3>
+          <label class="row">
+            <span>جودة الرسم</span>
+            <select id="set-quality">
+              <option value="low">خفيفة</option>
+              <option value="medium" selected>متوسطة</option>
+              <option value="high">عالية</option>
+              <option value="ultra">فائقة</option>
+            </select>
+          </label>
+          <label class="row">
+            <span>مدى الرؤية (الضباب)</span>
+            <input id="set-fog" type="range" min="0" max="100" value="52" />
+          </label>
+          <label class="row">
+            <span>حساسية النظر</span>
+            <input id="set-sens" type="range" min="20" max="200" value="100" />
+          </label>
+          <label class="row">
+            <span>حجم الصوت</span>
+            <input id="set-vol" type="range" min="0" max="100" value="65" />
+          </label>
+          <label class="row">
+            <span>حركة الأوراق والرياح</span>
+            <input id="set-wind" type="range" min="0" max="100" value="70" />
+          </label>
+          <label class="row check">
+            <span>ظلال الشمس</span>
+            <input id="set-shadows" type="checkbox" checked />
+          </label>
+          <p class="help-note" id="perf-note">
+            للجوال: اختر «خفيفة» أو «متوسطة» للحصول على حركة أسلس، وقلّل مدى الرؤية لتقليل الحمل.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ وضع التصوير ============ -->
+      <div id="photo-ui" class="photo-ui hidden">
+        <div class="photo-hint">وضع التصوير — حرّك الكاميرا وانقر لالتقاط صورة</div>
+        <button id="photo-shot" class="btn primary small">التقاط</button>
+        <button id="photo-exit" class="btn ghost small">إنهاء</button>
+      </div>
+
+      <!-- ============ الجولة: شريط التسمية ============ -->
+      <div id="tour-caption" class="tour-caption hidden">
+        <p class="tour-step" id="tour-step">المحطة 1 من 3</p>
+        <h4 id="tour-title">—</h4>
+        <p id="tour-text" class="tour-text"></p>
+        <div class="tour-progress"><div id="tour-progress-fill"></div></div>
+      </div>
+
+      <!-- ============ جوال ============ -->
+      <div id="mobile" class="mobile hidden">
+        <div id="stick" class="stick"><div id="stick-knob" class="stick-knob"></div></div>
+        <button id="act-btn" class="act-btn">تفاعل</button>
+      </div>
+
+      <!-- ============ شعار الأطلس ============ -->
+      <div id="atlas" class="atlas hidden">
+        <div class="atlas-head"><span>أطلس الوادي</span><button id="atlas-close">✕</button></div>
+        <div class="atlas-map">
+          <svg viewBox="0 0 200 260" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="atlasBg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#22402c" />
+                <stop offset="1" stop-color="#0d1a12" />
+              </linearGradient>
+            </defs>
+            <rect width="200" height="260" rx="14" fill="url(#atlasBg)" />
+            <path d="M20 240 Q60 150 55 90 Q52 40 80 10 L120 10 Q100 70 108 120 Q118 190 175 245 Z" fill="#2c4a2f" opacity="0.55" />
+            <path d="M96 246 Q100 200 96 150 Q92 110 96 60" stroke="#8a6b45" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.9" />
+            <path d="M96 246 Q100 200 96 150 Q92 110 96 60" stroke="#c49a67" stroke-width="2.5" fill="none" stroke-dasharray="4 6" opacity="0.8" />
+            <g fill="#6fbf5a" opacity="0.8">
+              <circle cx="70" cy="140" r="4" /><circle cx="118" cy="132" r="4" /><circle cx="84" cy="120" r="3.5" />
+              <circle cx="120" cy="160" r="4" /><circle cx="74" cy="172" r="3.5" /><circle cx="110" cy="108" r="3" />
+            </g>
+            <g id="atlas-pins"></g>
+          </svg>
+        </div>
+        <p class="atlas-note">النقاط المضيئة هي المحطات التفاعلية. اضغط عليها للانتقال إليها.</p>
+      </div>
+
+      <div id="cine" class="cine hidden">
+        <div class="cine-bar"><div id="cine-fill"></div></div>
+        <p class="cine-label" id="cine-label">المحطة 1 من 4</p>
+        <h4 id="cine-title">—</h4>
+        <p class="cine-note">اضغط في أي مكان لمتابعة الرحلة</p>
+      </div>
+
+      <div id="flash" class="flash"></div>
+      <div id="fatal" class="fatal hidden">
+        <h3>تعذّر تشغيل المشهد</h3>
+        <p>يبدو أن متصفحك لا يدعم WebGL2 أو أن تسريع الرسوم معطّل. جرّب متصفح Chrome أو Edge حديثاً.</p>
+      </div>
+    </div>
+  </body>
+</html>
