@@ -8,6 +8,21 @@
 
 ---
 
+## 📱 التطبيق الجاهز (APK)
+
+**التحميل المباشر:** https://github.com/101amirclash2-debug/Qaswat60/releases/tag/apk-latest
+(الملف: `wadi-al-jabal.apk` · ~4.4 ميجا · Android 5.1+ · يعمل أوفلاين)
+
+- طريقة التثبيت: حمّل الملف على الهاتف → افتحه → فعّل «تثبيت من مصدر غير معروف» عند الطلب.
+- أو امسح رمز QR الظاهر في شاشة البداية داخل الموقع.
+- يُبنى تلقائياً على GitHub Actions من هذا الفرع عند كل تعديل (`.github/workflows/build-apk.yml`)،
+  ويُنشر على الـrelease المتجدّد `apk-latest`، مع تحقّق من التوقيع ومحتوى الحزمة.
+
+بناء محلياً:
+```bash
+npm run build:apk     # يتطلب JDK 17 + Android SDK (build-tools 34 + platform 34)
+```
+
 ## أسرع طريقة للتشغيل (بدون أي أدوات)
 
 1. **ملف واحد:** `npm run build:single` ينتج **`wadi-al-jabal.html`** — ملف واحد مستقل تماماً
