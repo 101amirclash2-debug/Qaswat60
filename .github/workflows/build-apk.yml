@@ -62,6 +62,8 @@ jobs:
           ls -lh wadi-al-jabal.apk
           "$BT/aapt" dump badging wadi-al-jabal.apk | head -4
           "$BT/apksigner" verify --verbose wadi-al-jabal.apk | head -6
+          # signature must be stable across builds (fixed keystore)
+          "$BT/apksigner" verify --print-certs wadi-al-jabal.apk | grep -i "SHA-256" | head -2
           # the embedded web app must be inside the apk
           unzip -l wadi-al-jabal.apk | grep -E "assets/www/index.html|classes.dex"
 

@@ -262,11 +262,17 @@ run("zip", ["-qj", unsigned, path.join(WORK, "classes.dex")]);
 const aligned = path.join(WORK, "app-aligned.apk");
 run(ZIPALIGN, ["-f", "-p", "4", unsigned, aligned]);
 
-const keystore = path.join(WORK, "release.jks");
-run("keytool", ["-genkeypair", "-keystore", keystore,
-  "-storepass", "qaswat60", "-keypass", "qaswat60", "-alias", "wadi",
-  "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-noprompt",
-  "-dname", "CN=Qaswat60, OU=Wadi, O=Qaswat60, L=Sanaa, C=YE"]);
+// A STABLE signing key, otherwise every rebuild has a new signature and Android
+// refuses to install it over the previous one. android/release.p12 is committed
+// on purpose (demo project, pass: qaswat60); replace it with a private key for
+// a store release.
+const keystore = path.join(WORK, "release.keystore");
+const p12 = path.join("android", "release.p12");
+if (!fs.existsSync(p12)) fail("missing android/release.p12 (run: npm run keystore)");
+run("keytool", ["-importkeystore", "-noprompt",
+  "-srckeystore", p12, "-srcstoretype", "PKCS12", "-srcstorepass", "qaswat60",
+  "-srcalias", "wadi", "-destkeystore", keystore, "-deststoretype", "PKCS12",
+  "-deststorepass", "qaswat60", "-destkeypass", "qaswat60"]);
 
 fs.rmSync(OUT, { force: true });
 run(APKSIGNER, ["sign", "--ks", keystore, "--ks-pass", "pass:qaswat60",

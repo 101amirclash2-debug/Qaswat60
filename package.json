@@ -12,7 +12,8 @@
     "build:web-zip": "node scripts/make-zip.mjs",
     "build:apk": "npm run build:single && node scripts/make-apk.mjs",
     "build:pages": "npm run build && node scripts/publish-docs.mjs",
-    "qr": "node scripts/make-qr.mjs"
+    "qr": "node scripts/make-qr.mjs",
+    "keystore": "node scripts/make-keystore.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"
