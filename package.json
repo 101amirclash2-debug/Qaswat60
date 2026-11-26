@@ -1,0 +1,27 @@
+{
+  "name": "qaswat60-valley",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "build:single": "vite build && node scripts/bundle-single.mjs wadi-al-jabal.html",
+    "icons": "node scripts/make-icons.mjs && node scripts/make-launcher-icons.mjs",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "build:web-zip": "node scripts/make-zip.mjs",
+    "build:apk": "npm run build:single && node scripts/make-apk.mjs",
+    "build:pages": "npm run build && node scripts/publish-docs.mjs",
+    "qr": "node scripts/make-qr.mjs"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
+    "vite": "^6.4.6"
+  }
+}

@@ -1,76 +1,146 @@
-Codespaces Android SDK CE (Community Edition)
----------------------------------------------
+# واحة الجبل المعلّقة — تجول ثلاثي الأبعاد
 
-A codespace repository configured to install android
-development tools.
+> **Qaswat60 Valley** — تجربة تجول افتراضي في المتصفح تحاكي البيئة الملتقطة في صور الموقع:
+> ممر ترابي في المقدمة، حقل موز كثيف في الوسط، سفوح مشجرة، وقمم صخرية شاهقة تحت نهار مشمس صافٍ.
 
-## Installed Software
+كل شيء في المشهد **مولّد إجرائياً** (تضاريس، نباتات، خامات، صوت) — لا نماذج ثلاثية الأبعاد مستوردة،
+والصور الفوتوغرافية المرفقة تُستخدم كمرجع بصري في واجهة البداية وبطاقات المحطات.
 
-    * Ubuntu
-    * Bazelisk
-    * Gradle
-    * Maven
-    * Ant
-    * Meson (FIXME **archived feature unavailable**)
-    * Java 25 (Oracle)
-    * Android SDK
+---
 
-## Usage
+## 📱 التطبيق الجاهز (APK)
 
-This repository can be used to create a codespace,
-by using it as a template for new projects, or
-including it as a submodule in an existing project.
+**التحميل المباشر:** https://github.com/101amirclash2-debug/Qaswat60/releases/tag/apk-latest
+(الملف: `wadi-al-jabal.apk` · ~4.4 ميجا · Android 5.1+ · يعمل أوفلاين)
 
-To import as a submodule use 'git submodule add'
+- طريقة التثبيت: حمّل الملف على الهاتف → افتحه → فعّل «تثبيت من مصدر غير معروف» عند الطلب.
+- أو امسح رمز QR الظاهر في شاشة البداية داخل الموقع.
+- يُبنى تلقائياً على GitHub Actions من هذا الفرع عند كل تعديل (`.github/workflows/build-apk.yml`)،
+  ويُنشر على الـrelease المتجدّد `apk-latest`، مع تحقّق من التوقيع ومحتوى الحزمة.
 
-    git submodule add https://github.com/raymond-chetty/codespaces-AndroidSDK-CE .devcontainer
+بناء محلياً:
+```bash
+npm run build:apk     # يتطلب JDK 17 + Android SDK (build-tools 34 + platform 34)
+```
 
-In theory it is possible to add access to additional
-repositories within a codespace using 'customizations'
+## أسرع طريقة للتشغيل (بدون أي أدوات)
 
-  * https://containers.dev/supporting#github-codespaces
-  * https://docs.github.com/en/codespaces/managing-your-codespaces/managing-repository-access-for-your-codespaces
+1. **ملف واحد:** `npm run build:single` ينتج **`wadi-al-jabal.html`** — ملف واحد مستقل تماماً
+   (المحرك + الخامات + الصور كلها مضمّنة). افتحه بنقرة مزدوجة، يعمل بلا إنترنت وبلا سيرفر،
+   على الكمبيوتر والجوال.
+2. **موقع كامل:** `npm run build:web-zip` ينتج `wadi-al-jabal-web.zip` — ارفع محتوى `dist`
+   على أي استضافة ثابتة. الموقع PWA: يمكن تثبيته كتطبيق من المتصفح ويعمل أوفلاين.
+3. **GitHub Pages:** المجلد `docs/` جاهز للنشر (يعمل عند أي مسار). أعد توليده بـ `npm run build:pages`.
+4. **APK أندرويد:** `npm run build:apk` (يحتاج JDK 17 + Android SDK build-tools 34 + platform android-34).
+   السكربت `scripts/make-apk.mjs` يضمّن الموقع داخل WebView يعمل أوفلاين ويوقّع الحزمة.
 
-## devcontainer.json
+## التشغيل للتطوير
 
-The original devcontainer.json file was created using the
-VS Code [codespaces configuration wizard][1].
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # نسخة إنتاجية في dist/
+npm run preview  # معاينة النسخة المبنية
+```
 
-Press "F1" or "Ctr + Shift + P" in [VS Code Codespaces][2]
-and select "Codespaces: Add Dev Container Configuration Files...".
+> تحتاج متصفحاً يدعم WebGL2 (Chrome / Edge / Firefox / Safari حديث).
 
-## Additional information
+---
 
-Additional information about [VS Code][3], the [UI][4],
-[Dev Containers][5] and [VS Code Dev Containers][6] ([Extention][7])
-is available online. Devcontainers are available on the most
-common operating systems and the web ([1][8] & [2][9])!
+## التحكم
 
-Before getting started it might also be helpful to add Copilot [repository custom instructions & prompt files][13], even with the [free][14] plan! More advanced users might also be interested in personalizing their dev containers with [dotfiles][12].
+| الإدخال | الوظيفة |
+| --- | --- |
+| `W A S D` / الأسهم | الحركة في الوادي |
+| `Shift` | الجري الخفيف |
+| الماوس | النظر (انقر على المشهد لقفل المؤشر) |
+| `E` | تفاعل مع المحطة القريبة |
+| `T` | الجولة الموجّهة |
+| `P` | وضع التصوير (لقطة PNG/JPG بضغطة) |
+| `M` | كتم الصوت |
+| `I` | أطلس الوادي |
+| `Esc` | إنهاء الجولة / فك المؤشر |
 
-If you want to get started with Java development you can use this
-["Maven in 5 Minues"][10] documentation to learn the basics in 5
-minutes! Just run the commands listed in the terminal to get
-started. You can search online for similar resources about 
-the other tools or [further information][11].
+على الجوال: عصا حركة يسار الشاشة، سحب في اليمين للنظر، وزر «تفاعل» عند الاقتراب من محطة.
 
-[1]: https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers#using-a-predefined-dev-container-configuration
+---
 
-[2]: https://code.visualstudio.com/docs/remote/codespaces
-[3]: https://code.visualstudio.com/
-[4]: https://code.visualstudio.com/docs/getstarted/userinterface
-[5]: https://containers.dev/
-[6]: https://code.visualstudio.com/docs/devcontainers/containers
-[7]: https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers
+## ما الذي بُني
 
-[8]: https://github.com/features/codespaces
-[9]: https://docs.github.com/en/codespaces/
+### 1. الفضاء والتضاريس
+- حوض وادٍ مغلق مبني على دالة ارتفاع واحدة (`src/world/terrain.js`) تجمع:
+  مصطبة زراعية شبه مستوية + تدرّج نحو الشمال + سلسلة جبال محيطة بمنحنيات `ridged noise`.
+- شبكة واحدة مشوّهة الأسّ (`power warp`) بحيث تكون الكثافة عالية قرب الزائر وتنخفض في العمق،
+  فتغطي الشبكة **1.4 كم** بـ 400×400 قسم فقط (~1.4 مليون مثلث للمشهد كله).
+- ألوان رأسية (vertex colours) تحوّل الأخضر إلى ذهبي جاف مع الارتفاع ثم إلى رمادي صخري على الجروف.
 
-[10]: https://maven.apache.org/guides/getting-started/maven-in-five-minutes.html
-[11]: https://cs61a.org
-[12]: https://docs.github.com/en/codespaces/setting-your-user-preferences/personalizing-github-codespaces-for-your-account
-[13]: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
-[14]: https://docs.github.com/en/copilot/get-started/plans
+### 2. الخامات
+- خامات إجرائية 100% على Canvas: نصل الموز (أوردة متوازية + عرق وسطي + بقع عمر + حواف صفراء)،
+  ساق كاذبة ليفية، تربة حصوية، عشب ليفي، صخر متشقّق، ولحاء.
+- **خرائط Normal** مُشتقة من خرائط ارتفاع محسوبة بالبكسل (`normalFromCanvas`).
+- تربة الأرضية تدمج 3 خامات عبر خريطة splat مولّدة (تراب / عشب / صخر) مع تفاصيل مزدوجة التكرار
+  لتجنّب «التبليط» الظاهر — كل ذلك عبر `onBeforeCompile` على مواد three.js القياسية.
 
+### 3. النباتات
+- **الموز**: نصل ورقي مبني إجرائياً (بروفايل عرض + تقوّس + تجعّد حواف) متصل بعنق (petiole)،
+  مرتّب في تاج حلزوني تتدرّج فيه الأوراق من الانتصاب إلى التدلّي والاصفرار.
+  6 نماذج + `InstancedMesh` لـ 300 نبتة.
+- **الأعشاب**: خصلات من 10–14 نصل + سنابل صفراء للخصلات العالية (كما في الصور)، 5200 خصلة قصيرة و1400 عالية.
+- **الأشجار والشجيرات**: مظلات من بطاقات نباتية (foliage cards) مع `alphaTest`، وطبقات ظل ثلاثية.
+- **الرياح**: رقعة shader واحدة تضيف `aFlex` لكل رأس، مع هبّات (gusts) وارتجاف (flutter) وشفافية ضوئية
+  للأوراق (`backlight translucency`).
 
+### 4. الإضاءة والجو
+- سماء متدرّجة + قرص شمس متوهّج، شمس اتجاهية بظلال PCFSoft تتبع اللاعب، وHemisphereLight دافئ.
+- تلاشٍ جوي أسّي + bloom خفيف + تدرّج لوني (تباين، تشبّع، ظل زجاجي، حبيبات فيلم) في pass مخصّص.
 
+### 5. المحطات الخمس (المحتوى)
+| # | المحطة | الموضوع |
+| --- | --- | --- |
+| 01 | ممر التربة | تحليل التربة والرطوبة والصرف + رسم مقطع للتربة |
+| 02 | قلب حقل الموز | دورة النمو وتشريح الورقة + رسم تشريحي للنصل |
+| 03 | حافة الأعشاب | تثبيت التربة وحفظ الرطوبة + رسم شبكة الجذور |
+| 04 | سفوح الأشجار | طبقات الغطاء النباتي والمظلة + رسم مقارنة |
+| 05 | القمم الصخرية | خطوط الارتفاع والحاجز المناخي (ظل مطري) |
+
+كل محطة: بطاقة معلومات مع صورة مرجعية من الموقع، نقاط علمية، شبكة بيانات، ورسم توضيحي SVG.
+
+### 6. الرحلة
+- **مقدمة سينمائية** تلقائية بأربع لقطات (شريط سينمائي + تسميات) عند الدخول، قابلة للتخطّي بنقرة.
+- **جولة موجّهة** (`T`) بأربع محطات مع بطاقات وصفية وشريط تقدّم.
+- **أطلس الوادي** (`I` أو زر 🗺) بخريطة SVG ومحطات قابلة للنقر للانتقال السريع.
+
+### 7. الصوت (إجرائي بالكامل)
+`src/audio/ambience.js` يبني بـ WebAudio:
+- رياح في أوراق عريضة (ضجيج مُرشّح بتذبذبات بطيئة)،
+- حفيف أعشاب يزداد قرب الحقول وعند المشي،
+- زقزقة طيور جبلية متباعدة (chirps مجدولة عشوائياً)،
+- خطوات مرتبطة بحركة اللاعب.
+
+### 8. الأداء والإعدادات
+- 4 مستويات جودة (خفيفة → فائقة) تتحكم في `pixelRatio` وكثافة النباتات.
+- تحكم في مدى الضباب، حساسية النظر، الصوت، شدة الرياح، والظلال.
+
+---
+
+## بنية المشروع
+
+```
+index.html                 واجهة المستخدم (عربية RTL)
+src/main.js                التنسيق: المحرك، الحلقة، الجولة، الإعدادات
+src/style.css              تصميم الواجهة
+src/world/noise.js         value noise / fbm / ridged / PRNG
+src/world/terrain.js       دالة الارتفاع، خريطة splat، مادة الأرضية، بناء الشبكة
+src/world/sky.js           قبة السماء، الشمس، الضباب
+src/world/vegetation.js    الموز، الأعشاب، الشجيرات، الأشجار، الصخور، الفراش
+src/world/hotspots.js      علامات المحطات المضيئة
+src/controls/walker.js     تحكم أول-شخص: نظر، مشي، تدرّج أرضي، تصادم
+src/audio/ambience.js      المشهد الصوتي الإجرائي
+src/data/stations.js       نصوص المحطات والجولة
+src/ui/panel.js            بطاقة المعلومات والرسوم التوضيحية
+public/scene/*.jpg         صور الموقع المرجعية
+```
+
+## ملاحظات
+- الصور في `public/scene` مُصغّرة من صور المستخدم الأصلية لتحميل أسرع.
+- لا توجد أصول خارجية (لا Google Fonts إلزامية، لا ملفات صوت) — الخط يُحمّل إن توفّر الاتصال فقط.
