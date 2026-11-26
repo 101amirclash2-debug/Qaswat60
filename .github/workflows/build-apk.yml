@@ -1,0 +1,89 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: ["arena/**"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  JAVA_VERSION: "17"
+
+jobs:
+  apk:
+    name: Build installable APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare Android SDK
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          ls "$SDK/build-tools"
+
+      - name: Build the web app (single file)
+        run: npm run build:single
+
+      - name: Build the APK
+        run: node scripts/make-apk.mjs
+
+      - name: Report APK details
+        run: |
+          ls -lh wadi-al-jabal.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging wadi-al-jabal.apk | head -5
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wadi-al-jabal-apk
+          path: wadi-al-jabal.apk
+          retention-days: 90
+
+      - name: Publish APK on a rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="apk-latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" wadi-al-jabal.apk --clobber
+          else
+            gh release create "$TAG" wadi-al-jabal.apk \
+              --title "واحة الجبل — أحدث نسخة APK" \
+              --notes "بنية تلقائية من الفرع ${{ github.ref_name }} (${GITHUB_SHA:0:7}).
+
+**التثبيت:** حمّل \`wadi-al-jabal.apk\` من قسم Assets أدناه وافتحه على هاتف أندرويد
+(فعّل «تثبيت من مصادر غير معروفة» إن طُلب). يعمل التطبيق أوفلاين تماماً بملء الشاشة."
+          fi
+          echo "release: https://github.com/${{ github.repository }}/releases/tag/$TAG"

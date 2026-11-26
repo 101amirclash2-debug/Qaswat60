@@ -7,10 +7,10 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "build:single": "vite build && node scripts/bundle-single.mjs wadi-al-jabal.html",
-    "icons": "node scripts/make-icons.mjs",
+    "icons": "node scripts/make-icons.mjs && node scripts/make-launcher-icons.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "build:web-zip": "node scripts/make-zip.mjs",
-    "build:apk": "node scripts/make-apk.mjs",
+    "build:apk": "npm run build:single && node scripts/make-apk.mjs",
     "build:pages": "npm run build && node scripts/publish-docs.mjs"
   },
   "dependencies": {
