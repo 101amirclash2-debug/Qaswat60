@@ -40,6 +40,26 @@ const loaderText = $("loader-text");
 const btnEnter = $("btn-enter");
 const btnTour = $("btn-tour");
 
+// Report any early failure instead of leaving a silent, dead screen.
+window.__bootOk = false;
+window.addEventListener("error", (e) => {
+  if (window.__bootOk) return;
+  console.error("boot error", e.error || e.message);
+  showBootError("تعذّر تشغيل المشهد: " + (e.message || "خطأ غير معروف") + ". افتحه في Chrome حديث، أو أبلغني بالرسالة.");
+});
+window.addEventListener("unhandledrejection", (e) => {
+  if (window.__bootOk) return;
+  console.error("boot rejection", e.reason);
+  showBootError("تعذّر تشغيل المشهد: " + (e.reason?.message || e.reason || "خطأ") );
+});
+
+const showBootError = (msg) => {
+  const el = $("boot-error");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+};
+
 const setProgress = (pct, text) => {
   loaderBar.style.width = `${Math.round(pct)}%`;
   loaderPct.textContent = `${Math.round(pct)}%`;
@@ -58,21 +78,34 @@ const settings = {
   shadows: true,
 };
 
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    powerPreference: "high-performance",
-    stencil: false,
-  });
-} catch (err) {
+let renderer = null;
+const rendererOptions = [
+  { antialias: true, powerPreference: "high-performance", stencil: false },
+  { antialias: false, powerPreference: "default", stencil: false, failIfMajorPerformanceCaveat: false },
+  { antialias: false, powerPreference: "default", alpha: false, depth: true },
+];
+for (const opts of rendererOptions) {
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, ...opts });
+    break;
+  } catch (err) {
+    console.warn("WebGL context attempt failed", err);
+  }
+}
+if (!renderer) {
+  const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+  showBootError(
+    gl
+      ? "تعذّر إنشاء سياق الرسم رغم دعم WebGL. جرّب إعادة تشغيل الجهاز أو تحديث المتصفح."
+      : "جهازك لا يوفّر WebGL لهذا المتصفح. فعّل تسريع الرسوم (Hardware Acceleration) أو جرّب Chrome."
+  );
   $("fatal").classList.remove("hidden");
-  intro.classList.add("gone");
-  throw err;
+  throw new Error("WebGL unavailable");
 }
 
 const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const inAppShell = /; wv\)/.test(navigator.userAgent) || location.protocol === "file:";
+if (inAppShell) document.documentElement.classList.add("app-shell");
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.6 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -167,6 +200,7 @@ async function buildWorld() {
   });
 
   world.ready = true;
+  console.log("[valley] world ready:", JSON.stringify(measureScene()));
   window.__valley = {
     scene, camera, walker, renderer, sun, hemi, ambience, panel, settings,
     stations: STATIONS, hotspotDebug: world.hotspots, world,
@@ -176,14 +210,14 @@ async function buildWorld() {
       const y = heightAt(x, z) + 1.66;
       camera.position.set(x, y, z);
       camera.rotation.set(pitch, yaw, 0, "YXZ");
-      window.__render && window.__render();
+      renderFrame();
     },
     lookAt(px, pz, tx, ty, tz) {
       const y = heightAt(px, pz) + 1.66;
       camera.position.set(px, y, pz);
       camera.lookAt(tx, ty, tz);
       walker.position.set(px, y - 1.66, pz);
-      window.__render && window.__render();
+      renderFrame();
     },
     stats() {
       let tris = 0;
@@ -199,6 +233,7 @@ async function buildWorld() {
       return { triangles: Math.round(tris), objects, calls: renderer.info.render.calls };
     },
   };
+  window.__bootOk = true;
   setProgress(100, "جاهز للتجول");
   btnEnter.disabled = false;
   btnTour.disabled = false;
@@ -238,24 +273,57 @@ let shake = 0;
 function camShake(v) { shake = Math.max(shake, v); }
 
 /* ---- intro ---- */
-btnEnter.addEventListener("click", async () => {
-  await ambience.start();
-  intro.classList.add("gone");
+/** Start audio without ever blocking the experience (autoplay/Safari can throw). */
+async function startAudio() {
+  try {
+    await Promise.race([
+      ambience.start(),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch (err) {
+    console.warn("audio disabled:", err);
+  }
+}
+
+/** Everything needed to leave the menu — runs even if a step fails. */
+function enterExperience({ tour = false } = {}) {
   started = true;
+  intro.classList.add("gone");
+  $("start-bar")?.classList.add("gone-bar");
+  hud.classList.remove("hidden");
   $("mobile").classList.toggle("hidden", !isMobile);
   sizeRenderer();
-  startCinematic();
+  requestAnimationFrame(sizeRenderer);
+  updateLockHint();
+  try {
+    if (tour) {
+      walker.enabled = true;
+      startTour();
+    } else {
+      startCinematic();
+    }
+  } catch (err) {
+    console.error("start failed, falling back to free walk:", err);
+    cineActive = false;
+    walker.enabled = true;
+    if (!isMobile) setTimeout(() => walker.lock(), 200);
+    showZone("تجول حر", "استخدم WASD للحركة والماوس للنظر");
+  }
+}
+
+btnEnter.addEventListener("click", () => {
+  startAudio();
+  enterExperience();
 });
 
-btnTour.addEventListener("click", async () => {
-  await ambience.start();
-  intro.classList.add("gone");
-  hud.classList.remove("hidden");
-  started = true;
-  walker.enabled = true;
-  $("mobile").classList.toggle("hidden", !isMobile);
-  startTour();
-  sizeRenderer();
+btnTour.addEventListener("click", () => {
+  startAudio();
+  enterExperience({ tour: true });
+});
+
+$("btn-start-fixed")?.addEventListener("click", () => {
+  startAudio();
+  enterExperience();
 });
 
 $("btn-help-intro").addEventListener("click", () => $("help").classList.remove("hidden"));
@@ -672,6 +740,11 @@ if (isMobile) {
 /* ------------------------------------------------------------------ */
 /* Post processing                                                    */
 /* ------------------------------------------------------------------ */
+const canPost =
+  renderer.capabilities.isWebGL2 ||
+  renderer.extensions.has("OES_texture_half_float") ||
+  renderer.extensions.has("EXT_color_buffer_half_float");
+
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
@@ -718,7 +791,40 @@ const grade = new ShaderPass({
 composer.addPass(grade);
 composer.addPass(new OutputPass());
 
-window.__render = () => composer.render();
+let postBroken = false;
+function measureScene() {
+  let tris = 0;
+  let meshes = 0;
+  scene.traverse((o) => {
+    if (o.isMesh || o.isInstancedMesh) {
+      meshes++;
+      const g = o.geometry;
+      const n = (g.index ? g.index.count : g.attributes.position.count) / 3;
+      tris += n * (o.isInstancedMesh ? o.count : 1);
+    }
+  });
+  return {
+    meshes,
+    triangles: Math.round(tris),
+    webgl2: renderer.capabilities.isWebGL2,
+    post: canPost && !postBroken,
+    dpr: renderer.getPixelRatio(),
+  };
+}
+
+function renderFrame() {
+  if (canPost && !postBroken) {
+    try {
+      composer.render();
+      return;
+    } catch (err) {
+      console.warn("post-processing failed, rendering directly", err);
+      postBroken = true;
+    }
+  }
+  renderer.render(scene, camera);
+}
+window.__render = renderFrame;
 
 function sizeRenderer() {
   const w = window.innerWidth;
@@ -737,11 +843,24 @@ window.addEventListener("resize", sizeRenderer);
 const clock = new THREE.Clock();
 let fpsAcc = 0;
 let fpsFrames = 0;
+let perfSamples = 0;
+let perfAdjusted = false;
 const compass = document.querySelector(".compass-strip");
 const tmpV = new THREE.Vector3();
 
+let loopErrors = 0;
 function loop() {
   requestAnimationFrame(loop);
+  try {
+    frame();
+  } catch (err) {
+    loopErrors++;
+    if (loopErrors < 4) console.error("frame error", err);
+    if (loopErrors === 3) showBootError("حدث خطأ أثناء الرسم: " + (err?.message || err));
+  }
+}
+
+function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   windUniforms.uTime.value += dt * 1.0;
   windUniforms.uWind.value = settings.wind / 100;
@@ -761,7 +880,7 @@ function loop() {
     sun.target.updateMatrixWorld();
     sky.dome.position.copy(camera.position);
     grade.uniforms.uTime.value += dt * 0.5;
-    composer.render();
+    renderFrame();
     return;
   }
 
@@ -836,11 +955,24 @@ function loop() {
   }
 
   grade.uniforms.uTime.value += dt * 0.5;
-  composer.render();
+  renderFrame();
 
-  // fps
+  // adaptive quality for weak phones
   fpsAcc += dt;
   fpsFrames++;
+  perfSamples++;
+  if (perfSamples === 90 && !perfAdjusted) {
+    perfAdjusted = true;
+    const fps = fpsFrames / Math.max(0.001, fpsAcc);
+    if (fps < 24) {
+      console.warn("[valley] low fps, reducing quality", fps.toFixed(1));
+      renderer.setPixelRatio(0.75);
+      renderer.shadowMap.enabled = false;
+      sun.castShadow = false;
+      sizeRenderer();
+      showZone("تم تخفيف الجودة", "لأن الجهاز بطيء في الرسم — يمكنك رفعها من الإعدادات");
+    }
+  }
   if (fpsAcc > 0.6) {
     const el = $("fps");
     if (el) el.textContent = Math.round(fpsFrames / fpsAcc);
@@ -873,6 +1005,95 @@ function grassProximity() {
   const band = Math.max(0, 1 - Math.abs(z - 26) / 22);
   return Math.min(1, band * 0.9 + Math.abs(Math.sin(walker.position.x * 0.05)) * 0.2);
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Diagnostics: on-screen error log + report (open with ?diag or 5 taps) */
+/* ------------------------------------------------------------------ */
+const errlogEl = $("errlog");
+function logLine(msg) {
+  if (!errlogEl) return;
+  const d = document.createElement("div");
+  d.textContent = msg;
+  errlogEl.appendChild(d);
+  while (errlogEl.children.length > 3) errlogEl.firstChild.remove();
+}
+window.addEventListener("error", (e) => logLine(`${e.message} @${e.filename?.split("/").pop() || "?"}:${e.lineno || 0}`));
+window.addEventListener("unhandledrejection", (e) => logLine(`promise: ${e.reason?.message || e.reason}`));
+
+async function buildDiagReport() {
+  const gl = renderer?.getContext?.() || canvas.getContext("webgl2") || canvas.getContext("webgl");
+  let dbg = null;
+  try {
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    if (ext) dbg = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+  } catch { /* ignore */ }
+  const m = measureScene();
+  const lines = [
+    `app: qaswat60-valley 1.0`,
+    `page: ${location.protocol}//${location.host}${location.pathname}`,
+    `shell: ${inAppShell ? "android-webview/apk" : "browser"}`,
+    `ua: ${navigator.userAgent}`,
+    `screen: ${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio}x`,
+    `webgl2: ${!!renderer?.capabilities?.isWebGL2}  post: ${canPost && !postBroken}`,
+    `glsl: ${gl ? gl.getParameter(gl.VERSION) : "none"}`,
+    `gpu: ${dbg || "?"}`,
+    `meshes: ${m.meshes}  triangles: ${m.triangles}`,
+    `dpr(render): ${m.dpr}  shadows: ${renderer?.shadowMap?.enabled}`,
+    `boot: ${window.__bootOk ? "ok" : "pending"}  started: ${started}`,
+    `audio: ${ambience.started ? (ambience.muted ? "muted" : "on") : "off"}`,
+    `errors: ${[...(errlogEl?.children || [])].map((c) => c.textContent).join(" | ") || "none"}`,
+  ];
+  return lines.join("\n");
+}
+
+async function openDiag() {
+  const el = $("diag");
+  el.classList.remove("hidden");
+  const body = $("diag-body");
+  body.textContent = await buildDiagReport();
+}
+
+$("diag-close")?.addEventListener("click", () => $("diag").classList.add("hidden"));
+$("diag-copy")?.addEventListener("click", async () => {
+  const txt = $("diag-body").textContent;
+  try {
+    await navigator.clipboard.writeText(txt);
+    $("diag-copy").textContent = "تم النسخ ✓";
+  } catch {
+    $("diag-body").textContent = txt + "\n\n(النسخ غير متاح — حدّد النص يدوياً)";
+  }
+});
+$("diag-test")?.addEventListener("click", () => {
+  const c = document.createElement("canvas");
+  const gl = c.getContext("webgl2") || c.getContext("webgl");
+  const info = gl ? `تم إنشاء سياق ${gl instanceof WebGL2RenderingContext ? "WebGL2" : "WebGL1"} بنجاح` : "فشل إنشاء السياق";
+  $("diag-body").textContent += `\n--- quick test ---\n${info}\ncanvas draw: ${(() => {
+    try {
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#0f0";
+      ctx.fillRect(0, 0, 4, 4);
+      return ctx.getImageData(1, 1, 1, 1).data.join(",");
+    } catch (e) { return "2d failed: " + e.message; }
+  })()}`;
+});
+
+if (new URLSearchParams(location.search).has("diag")) {
+  setTimeout(openDiag, 1200);
+}
+// 5 quick taps in the top-left corner also open the report
+let tapCount = 0;
+let tapTimer = 0;
+window.addEventListener("pointerdown", (e) => {
+  if (e.clientX > 70 || e.clientY > 70) return;
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapCount = 0; }, 900);
+  if (tapCount >= 5) {
+    tapCount = 0;
+    openDiag();
+  }
+});
 
 /* ---- PWA: install prompt + offline cache (only when served over http/https) ---- */
 let deferredInstall = null;
@@ -908,7 +1129,12 @@ buildWorld().then(() => {
   ambience.setVolume(settings.vol / 100);
   renderAtlasPins();
   // pre-compile shaders to avoid first-frame hitch
-  renderer.compile(scene, camera);
+  try { renderer.compile(scene, camera); } catch (err) { console.warn("compile skipped", err); }
+  setTimeout(() => {
+    if (!window.__bootOk) return;
+    if (document.getElementById("intro")?.classList.contains("gone")) return;
+    if (btnEnter.disabled) showBootError("التهيئة تستغرق وقتاً أطول من المتوقع على هذا الجهاز.");
+  }, 12000);
   loop();
 }).catch((err) => {
   console.error(err);

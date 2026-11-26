@@ -63,7 +63,11 @@ kbd {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 96px;
   transition: opacity 1s ease, visibility 1s;
 }
 .screen.gone { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -95,7 +99,8 @@ kbd {
 .intro-inner {
   position: relative;
   z-index: 2;
-  width: min(1240px, 92vw);
+  width: min(1240px, 94vw);
+  max-width: 100%;
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
@@ -763,11 +768,40 @@ kbd {
 .fatal p { color: var(--ink-dim); font-size: 13.5px; line-height: 1.9; max-width: 420px; margin: 0 auto; }
 
 @media (max-width: 980px) {
-  .intro-inner { grid-template-columns: 1fr; gap: 22px; }
-  .intro-strip { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .intro-strip figure:first-child { grid-column: span 4; aspect-ratio: 16 / 6; }
+  .screen { justify-content: flex-start; padding-top: 18px; }
+  .intro-inner { grid-template-columns: 1fr; gap: 16px; }
+  .intro-copy { order: 1; }
+  .install-card { order: 2; margin-top: 0; }
+  .intro-strip { order: 3; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .intro-strip figure:first-child { grid-column: span 4; aspect-ratio: 16 / 5; }
   .intro-strip figure { aspect-ratio: 1 / 1; }
   .intro-strip figcaption { display: none; }
+  .intro-copy h1 { font-size: clamp(28px, 7.6vw, 44px); }
+  .lede { font-size: 12.5px; line-height: 1.8; margin-top: 12px; }
+  .facts { margin-top: 12px; }
+  .install-body { align-items: flex-start; }
+  #apk-qr { width: 92px; height: 92px; }
+}
+
+/* short landscape screens (phones turned sideways): drop the decorations entirely
+   so the start button is always reachable without scrolling */
+@media (max-height: 560px) {
+  .screen { justify-content: flex-start; padding-top: 10px; padding-bottom: 88px; }
+  .intro-inner { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .intro-copy h1 { font-size: clamp(22px, 3.4vw, 34px); }
+  .intro-copy h2 { font-size: 13px; margin-top: 6px; }
+  .kicker { margin-bottom: 8px; font-size: 9.5px; }
+  .lede { font-size: 11.5px; line-height: 1.65; margin-top: 10px; max-width: 44ch; }
+  .intro-actions { margin-top: 14px; }
+  .btn { padding: 10px 18px; font-size: 13px; }
+  .loader { margin-top: 12px; }
+  .intro-strip { display: none; }
+  .facts { display: none; }
+  .install-card { margin-top: 10px; padding: 10px 12px; }
+  .install-body { margin-top: 8px; }
+  #apk-qr { width: 74px; height: 74px; }
+  .install-note { display: none; }
+  .intro-credit { display: none; }
 }
 
 @media (max-width: 720px) {
@@ -906,4 +940,114 @@ kbd {
 
 @media (max-width: 980px) {
   .install-card { order: 3; }
+}
+
+/* ================= always-reachable start bar ================= */
+.start-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: none;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(0deg, rgba(4, 12, 8, 0.96), rgba(4, 12, 8, 0.72) 70%, rgba(4, 12, 8, 0));
+}
+.start-bar .btn { flex: 1; padding: 13px 14px; font-size: 14px; }
+@media (max-width: 980px), (max-height: 620px) {
+  .start-bar { display: flex; }
+}
+.screen.gone + .start-bar, #intro.gone ~ .start-bar, .start-bar.gone-bar { display: none !important; }
+
+.boot-error {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #ffe1cf;
+  background: rgba(120, 40, 20, 0.35);
+  border: 1px solid rgba(255, 150, 110, 0.35);
+}
+
+/* ================= diagnostics ================= */
+.diag {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 10, 7, 0.82);
+  backdrop-filter: blur(6px);
+}
+.diag-card {
+  position: relative;
+  width: min(560px, 96vw);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 18px;
+  border-radius: 16px;
+  background: #0b1712;
+  border: 1px solid rgba(214, 236, 206, 0.2);
+}
+.diag-card h3 { margin: 0 0 10px; font-size: 15px; }
+.diag-card pre {
+  margin: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #d8f0c8;
+  direction: ltr;
+  text-align: left;
+}
+.diag-actions { display: flex; gap: 8px; margin-top: 12px; }
+.diag-close {
+  position: absolute; top: 10px; left: 10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.06);
+  color: var(--ink); cursor: pointer;
+}
+.errlog {
+  position: absolute;
+  left: 8px; right: 8px; bottom: 8px;
+  z-index: 80;
+  pointer-events: none;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #ffd7c2;
+  direction: ltr;
+  text-align: left;
+}
+.errlog div {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(120, 30, 15, 0.72);
+  border: 1px solid rgba(255, 150, 110, 0.35);
+  max-height: 4.2em;
+  overflow: hidden;
+}
+/* app shell: no CSS fades (old WebViews need compositor layers which can break WebGL) */
+.app-shell .screen,
+.app-shell .hud,
+.app-shell .panel,
+.app-shell .modal,
+.app-shell .cine {
+  transition: none !important;
+  animation: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-shell .intro-photo { animation: none !important; }
+.app-shell .panel { background: #0b1712; }
+.app-shell .modal-card, .app-shell .install-card, .app-shell .tool, .app-shell .lock-hint {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
