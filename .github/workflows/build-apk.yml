@@ -1,6 +1,8 @@
 name: Build Android APK
 
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -8,12 +10,13 @@ permissions:
 env:
   NODE_VERSION: "22"
   JAVA_VERSION: "17"
+  BUILD_TOOLS_VERSION: "34.0.0"
 
 jobs:
   apk:
     name: Build installable APK
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Check out source
@@ -44,9 +47,9 @@ jobs:
           if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0" >/dev/null
-          ls "$SDK/build-tools"
+          "$SDK/build-tools/34.0.0/aapt" version
 
-      - name: Build the web app (single file)
+      - name: Build the web app as one self-contained file
         run: npm run build:single
 
       - name: Build the APK
@@ -55,7 +58,7 @@ jobs:
       - name: Report APK details
         run: |
           ls -lh wadi-al-jabal.apk
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging wadi-al-jabal.apk | head -5
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging wadi-al-jabal.apk | head -4
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -64,7 +67,7 @@ jobs:
           path: wadi-al-jabal.apk
           retention-days: 90
 
-      - name: Publish APK on a rolling release
+      - name: Publish APK on the rolling release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -74,10 +77,7 @@ jobs:
             gh release upload "$TAG" wadi-al-jabal.apk --clobber
           else
             gh release create "$TAG" wadi-al-jabal.apk \
-              --title "واحة الجبل — أحدث نسخة APK" \
-              --notes "بنية تلقائية من الفرع ${{ github.ref_name }} (${GITHUB_SHA:0:7}).
-
-**التثبيت:** حمّل \`wadi-al-jabal.apk\` من قسم Assets أدناه وافتحه على هاتف أندرويد
-(فعّل «تثبيت من مصادر غير معروفة» إن طُلب). يعمل التطبيق أوفلاين تماماً بملء الشاشة."
+              --title "Wadi Al-Jabal - latest APK" \
+              --notes "Auto-built from commit ${GITHUB_SHA:0:7}. Download wadi-al-jabal.apk below and open it on Android (allow install from unknown sources). Fully offline."
           fi
           echo "release: https://github.com/${{ github.repository }}/releases/tag/$TAG"
