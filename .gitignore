@@ -1,0 +1,9 @@
+node_modules/
+.android-build/
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+# مفاتيح مؤقتة فقط (ملف التوقيع الثابت android/release.p12 مُضمّن عمداً)
+android/release-key.pem
+android/release-cert.pem

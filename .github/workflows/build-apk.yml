@@ -1,0 +1,98 @@
+name: Build تجارة APK
+
+on:
+  push:
+    branches:
+      - 'arena/**'
+      - develop
+    paths-ignore:
+      - 'Tijara.apk'
+      - 'Tijara.html'
+      - 'README.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  JAVA_VERSION: "17"
+  BUILD_TOOLS_VERSION: "34.0.0"
+  PLATFORM: "android-34"
+
+jobs:
+  apk:
+    name: اختبار + بناء APK مُوقّع
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run engine + UI tests
+        run: npm test
+
+      - name: Prepare Android SDK
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;${{ env.PLATFORM }}" "build-tools;${{ env.BUILD_TOOLS_VERSION }}" >/dev/null
+          "$SDK/build-tools/${{ env.BUILD_TOOLS_VERSION }}/aapt" version
+
+      - name: Build single-file web app
+        run: npm run build:single
+
+      - name: Build signed APK
+        run: npm run build:apk
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/${{ env.BUILD_TOOLS_VERSION }}"
+          ls -lh Tijara.apk
+          "$BT/aapt" dump badging Tijara.apk | head -4
+          "$BT/apksigner" verify --verbose Tijara.apk | head -8
+          unzip -l Tijara.apk | grep -E "assets/www/index.html|classes.dex|META-INF/CERT.RSA|AndroidManifest.xml"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tijara-apk
+          path: Tijara.apk
+          retention-days: 90
+
+      - name: Publish APK on rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="tijara-apk-latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Tijara.apk --clobber
+          else
+            gh release create "$TAG" Tijara.apk \
+              --title "تجارة — أحدث APK" \
+              --notes "بناء تلقائي من ${GITHUB_SHA:0:7}. نزّل Tijara.apk وافتحه على أندرويد (اسمح بالتثبيت من مصادر غير معروفة). يعمل دون إنترنت بالكامل."
+          fi
+          echo "release: https://github.com/${{ github.repository }}/releases/tag/$TAG"

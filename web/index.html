@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#071b18">
+<meta name="description" content="تجارة — لعبة ورق اجتماعية: مزايدة، تفاوض، تمويه وإطاحة بالهوامير">
+<title>تجارة — لعبة الورق الاجتماعية</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<canvas id="fx-canvas" aria-hidden="true"></canvas>
+<div id="emoji-layer" aria-hidden="true"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<div id="app">
+
+  <!-- ======================= الشاشة الرئيسية ======================= -->
+  <section class="screen active" id="screen-home">
+    <div class="home-bg"></div>
+    <div class="home-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span>🃏</span></div>
+        <h1 class="brand-title">تِجَارَة</h1>
+        <p class="brand-sub">سوقٌ على طاولة.. والرابح من يُحسن المفاوضة</p>
+        <div class="brand-line"></div>
+      </div>
+
+      <div class="home-stats" id="home-stats"></div>
+
+      <div class="home-actions">
+        <button class="btn btn-gold btn-xl" data-nav="setup"><span class="bico">▶</span> مباراة جديدة</button>
+        <button class="btn btn-ghost" data-nav="setup" data-quick="1"><span class="bico">⚡</span> لعب سريع</button>
+        <div class="home-grid">
+          <button class="tile" data-modal="rules"><span>📜</span><b>القوانين</b><small>دليل مبسّط وشامل</small></button>
+          <button class="tile" data-nav="history"><span>🏅</span><b>السجل والإنجازات</b><small>أرقامك وأوسمتك</small></button>
+          <button class="tile" data-nav="friends"><span>🤝</span><b>الأصدقاء والدعوات</b><small>محلياً / عبر الإنترنت</small></button>
+          <button class="tile" data-nav="settings"><span>⚙️</span><b>الإعدادات</b><small>المبلغ، الوقت، الصوت</small></button>
+        </div>
+      </div>
+
+      <button class="resume-bar hidden" id="resume-bar" data-nav="game"></button>
+      <p class="home-foot">تجارة · إصدار 1.0 · تعمل دون إنترنت · صُنعت بحب 🧡</p>
+    </div>
+  </section>
+
+  <!-- ======================= إعدادات المباراة ======================= -->
+  <section class="screen" id="screen-setup">
+    <header class="screen-head">
+      <button class="icon-btn" data-nav="home" aria-label="رجوع">➜</button>
+      <div><h2>إعدادات المباراة</h2><p class="muted">جهّز الطاولة قبل بدء المنافسة</p></div>
+      <button class="btn btn-sm btn-outline" data-modal="rules">📜 القوانين</button>
+    </header>
+    <div class="screen-scroll" id="setup-body"></div>
+    <div class="sticky-foot">
+      <button class="btn btn-gold btn-xl" id="btn-start">ابدأ المنافسة <span class="bico">🚀</span></button>
+    </div>
+  </section>
+
+  <!-- =========================== الطاولة =========================== -->
+  <section class="screen screen-game" id="screen-game">
+    <header class="game-top">
+      <button class="icon-btn" id="btn-exit" aria-label="القائمة">☰</button>
+      <div class="game-title">
+        <strong>تجارة</strong>
+        <span id="top-phase">السوق</span>
+      </div>
+      <div class="top-round" id="top-round">جولة 1</div>
+      <button class="icon-btn" id="btn-table-view" title="تبديل عرض المقاعد">▦</button>
+      <button class="icon-btn" id="btn-chat-toggle" title="الدردشة">💬</button>
+    </header>
+
+    <div class="game-body">
+      <div class="table-area" id="table-area">
+        <div class="table-felt" id="table-felt">
+          <div class="felt-pattern"></div>
+          <div class="table-center">
+            <div class="pot-label">إجمالي السوق</div>
+            <div class="pot-value" id="pot-value">٠</div>
+            <div class="pot-phase" id="pot-phase">في انتظار الدخول</div>
+            <div class="timer-ring hidden" id="timer-ring">
+              <svg viewBox="0 0 80 80"><circle class="tr-bg" cx="40" cy="40" r="34"></circle><circle class="tr-fg" id="tr-fg" cx="40" cy="40" r="34"></circle></svg>
+              <span id="timer-num">15</span>
+            </div>
+            <div class="deck-info" id="deck-info"></div>
+          </div>
+          <div class="seats" id="seats"></div>
+        </div>
+        <div class="seats-list hidden" id="seats-list"></div>
+      </div>
+
+      <aside class="side-panel" id="side-panel">
+        <div class="side-head"><span>💬 غرفة الطاولة</span><button class="icon-btn" id="btn-side-close">✕</button></div>
+        <div class="chat-log" id="chat-log"></div>
+        <div class="voice-bar">
+          <button class="mic-btn" id="btn-mic" title="المحادثة الصوتية">🎙</button>
+          <span id="voice-status">المايك مغلق</span>
+        </div>
+        <div class="quick-phrases" id="quick-phrases"></div>
+        <div class="emoji-picker" id="emoji-picker"></div>
+        <div class="chat-input">
+          <input id="chat-text" maxlength="220" placeholder="اكتب رسالة للطاولة…" autocomplete="off">
+          <button class="btn btn-sm btn-gold" id="btn-send">إرسال</button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="game-bottom">
+      <div class="hand-row">
+        <div class="hand-label" id="hand-label">أوراقك</div>
+        <div class="hand" id="hand"></div>
+        <div class="hand-eval" id="hand-eval"></div>
+      </div>
+      <div class="action-panel" id="action-panel"></div>
+    </div>
+  </section>
+
+  <!-- ======================= السجل والإنجازات ======================= -->
+  <section class="screen" id="screen-history">
+    <header class="screen-head">
+      <button class="icon-btn" data-nav="home" aria-label="رجوع">➜</button>
+      <div><h2>السجل والإنجازات</h2><p class="muted">كل مباراة.. وكل وسام</p></div>
+      <button class="btn btn-sm btn-outline" id="btn-clear-history">🧹 مسح</button>
+    </header>
+    <div class="screen-scroll" id="history-body"></div>
+  </section>
+
+  <!-- ========================== الأصدقاء ========================== -->
+  <section class="screen" id="screen-friends">
+    <header class="screen-head">
+      <button class="icon-btn" data-nav="home" aria-label="رجوع">➜</button>
+      <div><h2>الأصدقاء والدعوات</h2><p class="muted">الشبكة المحلية / الواي فاي / الإنترنت</p></div>
+      <span class="net-pill" id="net-pill">غير متصل</span>
+    </header>
+    <div class="screen-scroll" id="friends-body"></div>
+  </section>
+
+  <!-- =========================== الإعدادات =========================== -->
+  <section class="screen" id="screen-settings">
+    <header class="screen-head">
+      <button class="icon-btn" data-nav="home" aria-label="رجوع">➜</button>
+      <div><h2>الإعدادات</h2><p class="muted">اضبط اللعبة على مزاجك</p></div>
+      <button class="btn btn-sm btn-outline" data-modal="rules">📜 القوانين</button>
+    </header>
+    <div class="screen-scroll" id="settings-body"></div>
+  </section>
+
+  <nav class="bottom-nav" id="bottom-nav">
+    <button data-nav="home"><span>🏠</span><small>الرئيسية</small></button>
+    <button data-nav="setup"><span>🃏</span><small>مباراة</small></button>
+    <button data-nav="history"><span>🏅</span><small>السجل</small></button>
+    <button data-nav="friends"><span>🤝</span><small>الأصدقاء</small></button>
+    <button data-nav="settings"><span>⚙️</span><small>الإعدادات</small></button>
+  </nav>
+</div>
+
+<div id="modal-root"></div>
+<div id="privacy-root"></div>
+
+<script src="js/engine.js"></script>
+<script src="js/store.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script type="text/javascript">
+/* عامل الخدمة للنسخة المستضافة فقط (داخل APK لا يوجد http) */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register('sw.js').catch(function () {});
+}
+</script>
+</body>
+</html>

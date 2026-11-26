@@ -1,76 +1,84 @@
-Codespaces Android SDK CE (Community Edition)
----------------------------------------------
+# 🃏 تِجَارَة — لعبة الورق الاجتماعية لأندرويد
 
-A codespace repository configured to install android
-development tools.
+> مزايدة بلا حد أدنى للرفع · تمويه وترهيب · تفاوض بوقت محدد · «الإطاحة بالهوامير» · تسوية مالية دقيقة · رحمة وإيقاف · بوتات بشخصيات · دردشة وإيموجيات ومايك · سجل وإنجازات · غرف لعب على الشبكة.
 
-## Installed Software
+**الملف الجاهز للتثبيت:** [`Tijara.apk`](./Tijara.apk) · [`Tijara.html`](./Tijara.html) (نسخة ويب مستقلة تعمل بلا إنترنت).
+خطوات التثبيت بالتفصيل في [`docs/INSTALL.md`](./docs/INSTALL.md).
 
-    * Ubuntu
-    * Bazelisk
-    * Gradle
-    * Maven
-    * Ant
-    * Meson (FIXME **archived feature unavailable**)
-    * Java 25 (Oracle)
-    * Android SDK
+---
 
-## Usage
+## ما الذي بُني؟
 
-This repository can be used to create a codespace,
-by using it as a template for new projects, or
-including it as a submodule in an existing project.
+| المتطلب | التنفيذ |
+| --- | --- |
+| المبلغ الافتراضي 50,000 قابل للتخصيص | `الإعدادات` + `إعدادات المباراة` (حد أدنى 1,000، presets جاهزة) |
+| وقت التفاوض 10/15/20/30/مفتوح | اختيار قبل بدء المنافسة + مؤقت دائري + «من لم يرد يُعتبر مُصرّاً» |
+| 2–10 لاعبين ودعم الرزم | رزمة (16 ورقة) لـ 2–4، رزمتان لـ 5–8، ثلاث لـ 9–10؛ 4 أوراق لكل لاعب؛ عرض طاولة دائري **أو** قائمة واضحة |
+| دمج البوتات / العدد الفعلي | لكل مقعد: إنسان أو بوت + 6 مستويات + 8 شخصيات، مع «إكمال العدد بالبوتات» |
+| زر القوانين | دليل مبسط من 8 تبويبات داخل الإعدادات والشاشة الرئيسية |
+| ترتيب الأوراق وقوة اليد | `J < Q < K < البنط`؛ **رباعية > ثلاثية > زوجان > زوج > متفرقة**، ثم الرتبة ثم الكيكرز، وحسم التعادل تلقائياً |
+| السوق | بدء عشوائي في الجولة الأولى ثم بالترتيب، **بلا حد أدنى للرفع** (+1 يكفي)، دخول بصفر، تمرير/انسحاب، جولات رفع إضافية |
+| المشرّف | أعلى مبلغ دخول → «الكل مثبت» أو «عرض الانسحاب والتفاوض» من إجمالي ما دخل به (حتى 0) |
+| التفاوض | قبول / رفض / تفاوض بمبلغ / إصرار على الكشف، وردّ المشرّف على التفاوض المضاد، ومؤقت |
+| التسوية | كل خاسر يخسر **مبلغ دخوله فقط**، والفائز يربح **مبلغ دخوله فقط**؛ المنسحب يُدفع له فقط إن فاز المشرّف ويُخصم من المشرّف |
+| الرحمة والإيقاف | 5,000 رحمة **مرة واحدة** عند الإفلاس، ثم **إيقاف 3 جولات كاملة** بلا أوراق ولا مشاركة |
+| الأنماط | فردي ضد البوتات، تسليم جهاز محلياً مع خصوصية الأوراق، غرف LAN/واي فاي/إنترنت، أصدقاء ودعوات 1↔1 وجماعية |
+| التواصل | شات، عبارات سريعة (`ثبت`، `أنا الأقوى`، `كم يرضيك`…)، 27 إيموجي متحرك مع التركيز على 🤪🤑😭😱😤😂😅🤯🥳😑😏😈😒، ومايك WebRTC |
+| السجل والإنجازات | تاريخ المباريات، أكبر ربح/خسارة، الإطاحات، الرحمة/الإيقاف، و14 وساماً بتصنيفات ونسب إنجاز |
+| الصوت والبصرية | مؤثرات WebAudio مُولّدة بالكامل، موسيقى خلفية، اهتزاز، قصاصات ذهبية، إيموجيات طائرة، انقلاب أوراق، وميض واهتزاز |
+| APK | تطبيق **WebView أصلي** بلا Gradle: `javac → d8 → aapt → zipalign → apksigner`، توقيع v1+v2 بمفتاح ثابت، يعمل دون إنترنت |
 
-To import as a submodule use 'git submodule add'
+---
 
-    git submodule add https://github.com/raymond-chetty/codespaces-AndroidSDK-CE .devcontainer
+## التشغيل السريع
 
-In theory it is possible to add access to additional
-repositories within a codespace using 'customizations'
+```bash
+npm ci                 # jsdom للاختبارات فقط
+npm test               # 19 اختبار محرك + اختبارات واجهة
+npm run build:single   # → Tijara.html (ملف واحد بلا طلبات شبكية)
+npm run build:apk      # → Tijara.apk   (يحتاج JDK 17 + Android SDK)
+npm run dev            # خادم الويب + غرف WebSocket على المنفذ 5173
+```
 
-  * https://containers.dev/supporting#github-codespaces
-  * https://docs.github.com/en/codespaces/managing-your-codespaces/managing-repository-access-for-your-codespaces
+لا يلزم `npm ci` لتشغيل اللعبة على الويب: `node server/server.mjs` يكفي (الخادم بلا تبعيات)، ثم افتح `http://<IP>:5173`.
 
-## devcontainer.json
+### تثبيت APK على الهاتف
+1. انسخ `Tijara.apk` إلى الهاتف (أو نزّله من **Releases → tijara-apk-latest**).
+2. افتح الملف → اسمح بـ «التثبيت من مصادر غير معروفة» لهذا المصدر.
+3. اضغط **تثبيت** ثم افتح «تجارة». لا يحتاج إنترنت ولا أي إذن إلزامي (المايك اختياري للغرف الصوتية).
 
-The original devcontainer.json file was created using the
-VS Code [codespaces configuration wizard][1].
+---
 
-Press "F1" or "Ctr + Shift + P" in [VS Code Codespaces][2]
-and select "Codespaces: Add Dev Container Configuration Files...".
+## البنية
 
-## Additional information
+```
+web/
+  index.html            الهيكل العربي RTL لكل الشاشات
+  css/style.css         الثيم الزمردي/الذهبي + التجاوب + الحركات
+  js/engine.js          محرك القواعد الخالص (بلا DOM) — قابل للاختبار في Node
+  js/store.js           localStorage: الإعدادات/السجل/الإنجازات/الأصدقاء
+  js/audio.js           مؤثرات WebAudio + الموسيقى الخلفية
+  js/fx.js              قصاصات، إيموجيات طائرة، إشعارات
+  js/net.js             غرف WebSocket + صوت WebRTC
+  js/ui.js              عرض الشاشات والنوافذ
+  js/app.js             المتحكّم: البوتات، المؤقتات، الشبكة، الحفظ
+server/server.mjs       خادم بلا تبعيات: ملفات ثابتة + WebSocket + تحميل APK
+scripts/                تحزيم ملف واحد، توليد المفتاح/الأيقونات، بناء APK
+tests/                  اختبارات المحرك + اختبار دخان للواجهة (jsdom)
+.github/workflows/      بناء APK مُوقّع على GitHub Actions
+Tijara.html             نسخة ويب مستقلة (مُولّدة)
+Tijara.apk              ملف التثبيت (مُولّد/مُلتقط من CI)
+```
 
-Additional information about [VS Code][3], the [UI][4],
-[Dev Containers][5] and [VS Code Dev Containers][6] ([Extention][7])
-is available online. Devcontainers are available on the most
-common operating systems and the web ([1][8] & [2][9])!
+### اللعب عبر الشبكة
+المضيف (`npm run dev` على حاسوب ضمن نفس الواي فاي) → الجميع يفتح `http://<IP>:5173` → **الأصدقاء** → اتصال → إنشاء غرفة → مشاركة الرمز → **بدء المنافسة**. الخادم يمرّر فقط الحالة المُخفاة (`maskFor`) والدردشة وإشارات WebRTC؛ الصوت يسري مباشرة بين الأجهزة. للإنترنت استخدم خادماً بعيداً مع WSS. تقنية البلوتوث تُستخدم عملياً عبر «نقطة اتصال/مشاركة واي فاي» بين الأجهزة لأن WebView لا يوفّر مقابس بلوتوث مباشرة.
 
-Before getting started it might also be helpful to add Copilot [repository custom instructions & prompt files][13], even with the [free][14] plan! More advanced users might also be interested in personalizing their dev containers with [dotfiles][12].
+---
 
-If you want to get started with Java development you can use this
-["Maven in 5 Minues"][10] documentation to learn the basics in 5
-minutes! Just run the commands listed in the terminal to get
-started. You can search online for similar resources about 
-the other tools or [further information][11].
+## ملاحظات هندسية وحسم التعادل
+* التعادل التام في قوة اليد يُحسم تلقائياً: **أعلى مبلغ دخول أولاً، ثم المقعد الأسبق** (موثّق في دليل القوانين داخل اللعبة).
+* بعد استنفاد الرحمة والإيقاف يعود اللاعب برصيده (قد يكون 0) ويمكنه الدخول بصفر للتمويه — التزاماً حرفياً بقاعدة «لا رحمة ثانية».
+* مفاتيح التوقيع في `android/release.p12` تجريبية ومُضمّنة عمداً لتبقى التحديثات قابلة للتثبيت فوق النسخة السابقة؛ استبدلها بمفتاح خاص قبل أي نشر تجاري.
+* المشروع يعمل بالكامل دون إنترنت داخل APK؛ فقط غرف الشبكة والمايك تحتاج اتصالاً.
 
-[1]: https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers#using-a-predefined-dev-container-configuration
-
-[2]: https://code.visualstudio.com/docs/remote/codespaces
-[3]: https://code.visualstudio.com/
-[4]: https://code.visualstudio.com/docs/getstarted/userinterface
-[5]: https://containers.dev/
-[6]: https://code.visualstudio.com/docs/devcontainers/containers
-[7]: https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers
-
-[8]: https://github.com/features/codespaces
-[9]: https://docs.github.com/en/codespaces/
-
-[10]: https://maven.apache.org/guides/getting-started/maven-in-five-minutes.html
-[11]: https://cs61a.org
-[12]: https://docs.github.com/en/codespaces/setting-your-user-preferences/personalizing-github-codespaces-for-your-account
-[13]: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
-[14]: https://docs.github.com/en/copilot/get-started/plans
-
-
-
+صُنعت بعناية وتفانٍ 🧡 — استمتعوا بالسوق!
