@@ -1,0 +1,19 @@
+{
+  "name": "واحة الجبل المعلّقة — تجول ثلاثي الأبعاد",
+  "short_name": "واحة الجبل",
+  "description": "تجول افتراضي ثلاثي الأبعاد في مزرعة موز جبلية: ممر ترابي، حقل موز كثيف، سفوح مشجرة، وقمم صخرية.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0a1410",
+  "theme_color": "#0d1a12",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

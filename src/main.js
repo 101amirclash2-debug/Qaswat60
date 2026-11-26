@@ -874,6 +874,31 @@ function grassProximity() {
   return Math.min(1, band * 0.9 + Math.abs(Math.sin(walker.position.x * 0.05)) * 0.2);
 }
 
+/* ---- PWA: install prompt + offline cache (only when served over http/https) ---- */
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  const btn = document.createElement("button");
+  btn.className = "tool install-btn";
+  btn.textContent = "⬇ تثبيت";
+  btn.title = "تثبيت التجربة كتطبيق على الجهاز";
+  btn.addEventListener("click", async () => {
+    if (!deferredInstall) return;
+    deferredInstall.prompt();
+    await deferredInstall.userChoice.catch(() => {});
+    deferredInstall = null;
+    btn.remove();
+  });
+  document.querySelector(".tools")?.prepend(btn);
+});
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 /* ---- kick off ---- */
 sizeRenderer();
 buildWorld().then(() => {

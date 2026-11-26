@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 4173"
+    "build:single": "vite build && node scripts/bundle-single.mjs wadi-al-jabal.html",
+    "icons": "node scripts/make-icons.mjs",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "build:web-zip": "node scripts/make-zip.mjs",
+    "build:apk": "node scripts/make-apk.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"

@@ -3,3 +3,8 @@ dist
 .vite
 *.log
 .shots
+# local build outputs (deliverables are published as release assets)
+wadi-al-jabal.html
+wadi-al-jabal-web.zip
+wadi-al-jabal.apk
+.android-build

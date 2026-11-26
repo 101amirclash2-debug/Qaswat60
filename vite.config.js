@@ -21,6 +21,13 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
-    chunkSizeWarningLimit: 1400,
+    chunkSizeWarningLimit: 20000,
+    // one self-contained HTML file: double-click it, no server needed
+    assetsInlineLimit: 100000000,
+    cssCodeSplit: false,
+    modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: { inlineDynamicImports: true },
+    },
   },
 });
