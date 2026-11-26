@@ -27,7 +27,11 @@
   }
   function vibrate(ms) {
     if (!cfg.vibration) return;
-    try { if (root.navigator && root.navigator.vibrate) root.navigator.vibrate(ms); } catch (e) {}
+    let done = false;
+    try { if (root.navigator && root.navigator.vibrate) { root.navigator.vibrate(ms); done = true; } } catch (e) {}
+    // داخل APK: جسر أصلي للاهتزاز إن لم يوفّر WebView واجهة navigator.vibrate
+    if (!done && Array.isArray(ms)) ms = 60;
+    try { if (root.Tijara && root.Tijara.vibrate) root.Tijara.vibrate(Math.max(10, Math.min(500, Number(ms) || 30))); } catch (e) {}
   }
   function tone(freq, dur, opts) {
     if (!ensure() || !cfg.sound) return;

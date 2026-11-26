@@ -1631,16 +1631,33 @@ input[type=range]{accent-color:var(--gold);width:100%}
     { id: 'online', name: 'عابر الشبكات', cat: 'اجتماعية', icon: '📡', desc: 'انضم إلى 3 غرف أونلاين', key: 'onlineRooms', goal: 3 }
   ];
 
+  /* داخل APK نستخدم الجسر الأصلي (SharedPreferences) لأن localStorage على
+     file:// قد يكون محجوباً في بعض إصدارات WebView؛ ونfallback للمتصفح. */
+  function bridge() {
+    try { return (root.Tijara && typeof root.Tijara.load === 'function') ? root.Tijara : null; }
+    catch (e) { return null; }
+  }
   function read(key, fallback) {
-    try {
-      const raw = root.localStorage && root.localStorage.getItem(key);
-      if (!raw) return JSON.parse(JSON.stringify(fallback));
-      return JSON.parse(raw);
-    } catch (e) { return JSON.parse(JSON.stringify(fallback)); }
+    const copy = () => JSON.parse(JSON.stringify(fallback));
+    let raw = null;
+    try { const b = bridge(); if (b) raw = b.load(key); } catch (e) { /* تجاهل */ }
+    if (raw === null || raw === undefined || raw === '') {
+      try { raw = root.localStorage && root.localStorage.getItem(key); } catch (e) { raw = null; }
+    }
+    if (!raw) return copy();
+    try { return JSON.parse(raw); } catch (e) { return copy(); }
   }
   function write(key, val) {
-    try { if (root.localStorage) root.localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* مساحة ممتلئة */ }
-    return val;
+    let text;
+    try { text = JSON.stringify(val); } catch (e) { return val; }
+    let saved = false;
+    try { const b = bridge(); if (b) { b.save(key, text); saved = true; } } catch (e) { /* تجاهل */ }
+    try { if (root.localStorage) root.localStorage.setItem(key, text); saved = true; } catch (e) { /* مساحة ممتلئة أو محجوب */ }
+    return saved ? val : val;   // تبقى القيمة صالحة في الذاكرة على أي حال
+  }
+  function del(key) {
+    try { const b = bridge(); if (b) b.remove(key); } catch (e) {}
+    try { if (root.localStorage) root.localStorage.removeItem(key); } catch (e) {}
   }
 
   function settings() { return Object.assign({}, DEFAULT_SETTINGS, read(K.settings, DEFAULT_SETTINGS)); }
@@ -1650,6 +1667,7 @@ input[type=range]{accent-color:var(--gold);width:100%}
   function bumpProfile(patch) {
     const p = profile();
     for (const k in patch) p[k] = (p[k] || 0) + patch[k];
+    if ('chatMessages' in patch || 'emojis' in patch) p.social = (p.chatMessages || 0) + (p.emojis || 0);
     return saveProfile(p);
   }
   function unlocked() { return read(K.achievements, {}); }
@@ -1684,10 +1702,8 @@ input[type=range]{accent-color:var(--gold);width:100%}
   }
   function saveGame(state) { return write(K.game, state); }
   function loadGame() { return read(K.game, null); }
-  function clearGame() { try { root.localStorage && root.localStorage.removeItem(K.game); } catch (e) {} }
-  function clearData() {
-    for (const k of Object.values(K)) { try { root.localStorage && root.localStorage.removeItem(k); } catch (e) {} }
-  }
+  function clearGame() { del(K.game); }
+  function clearData() { for (const k of Object.values(K)) del(k); }
 
   function friends() {
     return read(K.friends, { list: [], incoming: [], outgoing: [] });
@@ -1813,7 +1829,11 @@ input[type=range]{accent-color:var(--gold);width:100%}
   }
   function vibrate(ms) {
     if (!cfg.vibration) return;
-    try { if (root.navigator && root.navigator.vibrate) root.navigator.vibrate(ms); } catch (e) {}
+    let done = false;
+    try { if (root.navigator && root.navigator.vibrate) { root.navigator.vibrate(ms); done = true; } } catch (e) {}
+    // داخل APK: جسر أصلي للاهتزاز إن لم يوفّر WebView واجهة navigator.vibrate
+    if (!done && Array.isArray(ms)) ms = 60;
+    try { if (root.Tijara && root.Tijara.vibrate) root.Tijara.vibrate(Math.max(10, Math.min(500, Number(ms) || 30))); } catch (e) {}
   }
   function tone(freq, dur, opts) {
     if (!ensure() || !cfg.sound) return;

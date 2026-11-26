@@ -34,7 +34,7 @@
 
 ```bash
 npm ci                 # jsdom للاختبارات فقط
-npm test               # 19 اختبار محرك + اختبارات واجهة
+npm test               # 22 اختباراً: المحرك + الواجهة + بروتوكول الشبكة
 npm run build:single   # → Tijara.html (ملف واحد بلا طلبات شبكية)
 npm run build:apk      # → Tijara.apk   (يحتاج JDK 17 + Android SDK)
 npm run dev            # خادم الويب + غرف WebSocket على المنفذ 5173

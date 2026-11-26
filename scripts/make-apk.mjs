@@ -192,11 +192,24 @@ public class MainActivity extends Activity {
   }
 
   private final class TijaraBridge {
+    private static final String PREFS = "tijara_store";
+
     @JavascriptInterface public void vibrate(int ms) {
       try { android.os.Vibrator v = (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE); if (v != null) v.vibrate(ms); } catch (Throwable t) {}
     }
     @JavascriptInterface public void toast(String msg) { Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show(); }
     @JavascriptInterface public String version() { return "تجارة 1.0"; }
+
+    // حفظ أصلي موثوق: بعض أجهزة WebView تحجب localStorage على file://
+    @JavascriptInterface public synchronized String load(String key) {
+      try { return getSharedPreferences(PREFS, MODE_PRIVATE).getString(key, null); } catch (Throwable t) { return null; }
+    }
+    @JavascriptInterface public synchronized void save(String key, String value) {
+      try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(key, value).apply(); } catch (Throwable t) {}
+    }
+    @JavascriptInterface public synchronized void remove(String key) {
+      try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(key).apply(); } catch (Throwable t) {}
+    }
   }
 
   @Override public void onBackPressed() {
