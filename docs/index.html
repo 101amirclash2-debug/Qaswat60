@@ -14,8 +14,8 @@
     <title>واحة الجبل المعلّقة — تجول ثلاثي الأبعاد</title>
     <meta name="description" content="تجربة تجول افتراضي ثلاثية الأبعاد داخل مزرعة موز جبلية: ممر ترابي، حقل موز كثيف، سفوح مشجرة، وقمم صخرية شاهقة." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f2a1c'/%3E%3Cpath d='M32 10c10 0 18 8 18 18S42 54 32 54 14 38 14 28s8-18 18-18z' fill='%236fbf5a'/%3E%3Cpath d='M32 14v34' stroke='%232b5c33' stroke-width='3'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="./assets/index-B6DU9B8V.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/style-Bv7giAlD.css">
+    <script type="module" crossorigin src="./assets/index-BAGCh2jx.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/style-B33Ldqnx.css">
   </head>
   <body>
     <div id="app">
@@ -42,6 +42,7 @@
               <button id="btn-tour" class="btn ghost" disabled>الجولة الموجّهة</button>
               <button id="btn-help-intro" class="btn ghost">دليل التحكم</button>
             </div>
+            <p id="boot-error" class="boot-error hidden"></p>
             <div class="loader">
               <div class="loader-track"><div id="loader-bar"></div></div>
               <div class="loader-meta">
@@ -84,6 +85,11 @@
         </ul>
         <div class="intro-credit">محاكاة إجرائية بالكامل · تضاريس ونباتات وخامات مولّدة في المتصفح</div>
       </section>
+
+      <!-- زر بدء ثابت: يبقى ظاهراً على الشاشات الصغيرة حتى لو طال المحتوى -->
+      <div id="start-bar" class="start-bar">
+        <button id="btn-start-fixed" class="btn primary">ابدأ التجول</button>
+      </div>
 
       <!-- ============ الواجهة أثناء التجول ============ -->
       <div id="hud" class="hidden">
@@ -268,6 +274,21 @@
         <h4 id="cine-title">—</h4>
         <p class="cine-note">اضغط في أي مكان لمتابعة الرحلة</p>
       </div>
+
+      <!-- ============ تشخيص ============ -->
+      <div id="diag" class="diag hidden">
+        <div class="diag-card">
+          <button class="diag-close" id="diag-close">✕</button>
+          <h3>تشخيص التشغيل</h3>
+          <pre id="diag-body">جارٍ الفحص…</pre>
+          <div class="diag-actions">
+            <button id="diag-copy" class="btn small">نسخ التقرير</button>
+            <button id="diag-test" class="btn ghost small">اختبار سريع للرسم</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="errlog" class="errlog"></div>
 
       <div id="flash" class="flash"></div>
       <div id="fatal" class="fatal hidden">
