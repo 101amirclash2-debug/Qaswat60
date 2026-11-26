@@ -1,0 +1,13 @@
+name: smoke
+on: push
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: toolchain
+        run: |
+          java -version 2>&1 | head -3
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls $ANDROID_HOME/build-tools 2>/dev/null | tail -5
+          which aapt2 zipalign apksigner 2>/dev/null || true
