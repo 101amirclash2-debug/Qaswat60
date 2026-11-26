@@ -82,6 +82,22 @@ jobs:
           path: Tijara.apk
           retention-days: 90
 
+      - name: Commit ready-to-install APK to this branch
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "tijara-build-bot"
+          git config user.email "tijara-build-bot@users.noreply.github.com"
+          git add -f Tijara.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged — no commit"
+          else
+            git commit -m "build(apk): ملف تثبيت جاهز [skip ci]"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
       - name: Publish APK on rolling release
         env:
           GH_TOKEN: ${{ github.token }}
