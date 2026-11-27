@@ -38,8 +38,9 @@
   function renderStatic() {
     el.quick.innerHTML = T.QUICK_PHRASES.map(p =>
       '<button data-act="phrase" data-text="' + esc(p) + '">' + esc(p) + '</button>').join('');
-    el.emojis.innerHTML = T.EMOJIS.map(e =>
-      '<button data-act="emoji" data-emoji="' + esc(e) + '" title="' + esc(e) + '">' + e + '</button>').join('');
+    el.emojis.innerHTML = T.EMOJIS.map((e, i) =>
+      '<button data-act="emoji" data-emoji="' + esc(e) + '" title="' + esc(e) +
+      '" style="--i:' + i + '">' + e + '</button>').join('');
   }
 
   /* --------------------------- التنقل بين الشاشات --------------------- */
@@ -246,15 +247,16 @@
     const st = App.state;
     const names = {
       privacy: 'تسليم الأوراق', auction: 'السوق والمزايدة', supervisor: 'قرار المشرّف',
-      offers: 'عروض الانسحاب', negotiation: 'التفاوض', counters: 'رد المشرّف',
+      offers: 'عروض الانسحاب', negotiation: 'التفاوض', counters: 'قرار المشرّف',
       result: 'نتيجة الجولة', matchEnd: 'نهاية المباراة', deal: 'توزيع الأوراق'
     };
     el.topPhase.textContent = names[st.phase] || st.phase;
     el.topRound.textContent = 'جولة ' + st.round + ' / ' + st.settings.maxRounds;
     const total = st.players.reduce((s, p) => s + (p.entry || 0), 0);
     el.pot.textContent = fmt(total);
-    el.potPhase.textContent = st.phase === 'auction' ? 'أعلى دخول: ' + fmt((st.auction && st.auction.highest) || 0) :
-      st.phase === 'negotiation' ? '⏳ وقت التفاوض' :
+    el.potPhase.textContent = st.phase === 'auction' ? 'أعلى دخول / الحد الأدنى: ' + fmt((st.auction && st.auction.highest) || 0) :
+      st.phase === 'negotiation' ? '⏳ جولة التفاوض ' + (st.offersRound || 1) :
+      st.phase === 'counters' ? '🔁 إعادة العرض أو الفرش' :
         st.phase === 'result' ? '🏆 ' + (st.result && st.result.winnerName || '—') : 'السوق مفتوح للتمويه';
     el.deckInfo.textContent = st.deckCount + ' رزمة · ' + st.players.length + ' مقاعد · ' + (st.players.length * 4) + ' ورقة';
   }
@@ -364,7 +366,7 @@
     const st = App.state;
     const actor = App.currentActorSeat();
     const sig = [st.phase, actor, st.round, App.mySeat, App.canSeeHand(App.visibleSeat),
-      st.supervisorId, st.auction && st.auction.passNo, st.auction && st.auction.highest,
+      st.supervisorId, st.offersRound, st.auction && st.auction.highest,
       (st.auction && st.auction.history || []).length,
       (st.players || []).map(p => p.response).join(','),
       (st.counterPending || []).join(','), App.handoffNeeded()].join('|');
@@ -385,17 +387,29 @@
       case 'auction': {
         const a = st.auction;
         const p = st.players[actor];
-        h = banner('🤑 السوق مفتوح', 'لا حد أدنى للرفع · التمويه والترهيب مسموح · أعلى مبلغ دخول يصبح المشرّف');
+        const minimum = a.leaderId === null ? 0 : (a.highest || 0);
+        h = banner('🤑 السوق · دخول واحد لكل لاعب',
+          'الحد الأدنى = أعلى دخول سابق · من لا يملكه يدخل بكامل رصيده · الأعلى يصبح المشرّف');
         if (localActor && p) {
           const my = p.balance;
-          const presets = [0, 500, 1000, 5000, 10000, Math.floor(my * 0.25), Math.floor(my * 0.5), my]
-            .filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
-          h += '<div class="action-title">دور ' + esc(p.name) + ' <small>رصيدك ' + fmt(my) + ' · أعلى دخول ' + fmt(a.highest) + '</small></div>' +
-            '<div class="bid-box"><input id="bid-amount" type="number" inputmode="numeric" min="0" max="' + my + '" value="' + Math.min(my, Math.max(a.highest + 1, 1000)) + '" dir="ltr" style="text-align:center">' +
-            '<button class="btn btn-gold" data-act="bid:enter">دخول / رفع</button></div>' +
-            '<div class="amount-presets">' + presets.map(v => '<button data-act="bid:preset" data-v="' + v + '">' + (v === 0 ? 'صفر' : fmt(v)) + '</button>').join('') +
-            '<button data-act="bid:plus1">+1 (إطاحة)</button></div>' +
-            '<div class="action-row"><button class="btn btn-outline" data-act="bid:pass">ثبت / تمرير</button>' +
+          const short = my < minimum;
+          const floor = Math.min(minimum, my);
+          const presets = [minimum, minimum + 500, minimum + 1000, minimum + 5000,
+            Math.floor(my * 0.25), Math.floor(my * 0.5), my]
+            .map(v => Math.max(0, Math.min(my, v)))
+            .filter((v, i, arr) => arr.indexOf(v) === i && v >= floor)
+            .sort((x, y) => x - y);
+          h += '<div class="action-title">دور ' + esc(p.name) + ' <small>رصيدك ' + fmt(my) +
+            ' · الحد الأدنى للدخول ' + fmt(minimum) + '</small></div>' +
+            (short ? '<div class="budget">⚠️ رصيدك أقل من الحد الأدنى: الاستثناء الوحيد أن تدخل <b>بكامل رصيدك ' + fmt(my) + '</b>.</div>' : '') +
+            '<div class="bid-box"><input id="bid-amount" type="number" inputmode="numeric" min="' + floor +
+            '" max="' + my + '" value="' + floor + '" dir="ltr" style="text-align:center">' +
+            '<button class="btn btn-gold" data-act="bid:enter">✅ دخول السوق</button></div>' +
+            '<div class="amount-presets">' + presets.map(v =>
+              '<button data-act="bid:preset" data-v="' + v + '">' + (v === 0 ? 'صفر' : fmt(v)) + '</button>').join('') +
+            (my > floor ? '<button data-act="bid:allin">💰 كل الرصيد</button>' : '') +
+            (minimum + 1 <= my ? '<button data-act="bid:plus1">+1 فوق الحد</button>' : '') + '</div>' +
+            '<div class="action-row"><button class="btn btn-outline" data-act="bid:pass">⏭ تمرير بلا دخول</button>' +
             '<button class="btn btn-red" data-act="bid:fold">انسحاب</button></div>' +
             '<div class="market-log" id="market-log"></div>';
         } else {
@@ -418,7 +432,7 @@
       case 'offers': {
         const sup = st.players[st.supervisorId];
         const others = st.players.filter(p => p.entry !== null && !p.folded && p.seat !== st.supervisorId);
-        h = banner('💸 عروض الانسحاب', 'المشرّف يوزّع من إجمالي ما دخل به (' + fmt(sup.entry) + ') على الداخلين');
+        h = banner('💸 عروض الانسحاب', 'المشرّف يوزّع من إجمالي ما دخل به (' + fmt(sup.entry) + ') · يمكن إعادة العرض أكثر من مرة');
         if (App.isLocalSeat(st.supervisorId)) {
           h += '<div class="action-title">حدّد مبلغاً لكل لاعب <small>المجموع لا يتجاوز ' + fmt(sup.entry) + '</small></div>';
           h += others.map(p => '<div class="offer-row"><span class="oname">' + esc(p.avatar) + ' ' + esc(p.name) + ' <small class="muted">دخل ' + fmt(p.entry) + '</small></span>' +
@@ -433,7 +447,9 @@
         const pending = st.players.filter(p => p.entry !== null && !p.folded && p.seat !== st.supervisorId && p.response === null);
         const mine = pending.filter(p => App.isLocalSeat(p.seat));
         const p = mine[0] || pending[0];
-        h = banner('⏳ التفاوض جارٍ', st.settings.negotiationSec ? 'الوقت المحدد: ' + st.settings.negotiationSec + ' ثانية · من لم يرد يُعتبر مُصرّاً على الكشف' : 'الوقت مفتوح بلا مؤقت');
+        h = banner('⏳ جولة التفاوض ' + (st.offersRound || 1),
+          (st.settings.negotiationSec ? 'الوقت المحدد لهذه الجولة: ' + st.settings.negotiationSec + ' ثانية · ' : 'الوقت مفتوح · ') +
+          'يمكن إعادة التفاوض حتى الرضى أو يفرش المشرّف الأوراق');
         if (mine.length && p) {
           const offer = st.offers[p.seat] || 0;
           h += '<div class="action-title">دور ' + esc(p.name) + ' <small>العرض المقدّم: ' + fmt(offer) + ' · دخولك: ' + fmt(p.entry) + '</small></div>' +
@@ -454,13 +470,34 @@
       case 'counters': {
         const sup = st.players[st.supervisorId];
         const pend = st.counterPending || [];
-        h = banner('🔁 طلبات تفاوض مضاد', 'للمشرّف قبول أو رفض كل طلب');
-        if (App.isLocalSeat(st.supervisorId) && pend.length) {
-          const s = pend[0], q = st.players[s];
-          h += '<div class="action-title">' + esc(q.name) + ' يطلب ' + fmt(q.counter || 0) + ' <small>بدل ' + fmt(st.offers[s] || 0) + '</small></div>' +
-            '<div class="action-row"><button class="btn btn-teal" data-act="counter:yes" data-seat="' + s + '">قبول التفاوض</button>' +
-            '<button class="btn btn-red" data-act="counter:no" data-seat="' + s + '">رفض → كشف</button></div>';
-        } else h += '<div class="action-title">⏳ بانتظار المشرّف…</div>' + (sup.type === 'bot' ? '<button class="btn btn-sm btn-outline" data-act="skipBot">تخطي ⏩</button>' : '');
+        const unresolved = st.players.filter(p => p.entry !== null && !p.folded &&
+          p.seat !== st.supervisorId && !(p.withdrawal && p.withdrawal.accepted));
+        const committed = st.players.filter(p => p.withdrawal && p.withdrawal.accepted)
+          .reduce((sum, p) => sum + (p.withdrawal.amount || 0), 0);
+        const left = Math.max(0, (sup.entry || 0) - committed);
+        const round = st.offersRound || 1;
+        h = banner('🔁 جولة التفاوض ' + round + ' · قرار المشرّف',
+          'أعد العرض حتى القناعة والرضى، أو افرش الأوراق وثبّت المعاندين');
+        if (App.isLocalSeat(st.supervisorId)) {
+          if (pend.length) {
+            const t = pend[0], q = st.players[t];
+            h += '<div class="action-title">↩️ ' + esc(q.name) + ' يطلب ' + fmt(q.counter || 0) +
+              ' <small>بدل ' + fmt(st.offers[t] || 0) + '</small></div>' +
+              '<div class="action-row"><button class="btn btn-teal" data-act="counter:yes" data-seat="' + t + '">قبول طلبه</button>' +
+              '<button class="btn btn-outline" data-act="counter:no" data-seat="' + t + '">رفض.. وإبقاء التفاوض</button></div>';
+          }
+          h += '<div class="action-title">🤝 عروض جديدة للمعاندين (' + unresolved.length + ') <small>المتبقي من دخولك ' + fmt(left) + '</small></div>';
+          h += unresolved.map(p => '<div class="offer-row"><span class="oname">' + esc(p.avatar) + ' ' + esc(p.name) +
+            ' <small class="muted">' + esc(responseWord(p)) + ' · آخر عرض ' + fmt(st.offers[p.seat] || 0) + '</small></span>' +
+            '<input type="number" min="0" max="' + left + '" value="' +
+            Math.min(left, Math.max((st.offers[p.seat] || 0) + 1000, p.counter || 0)) +
+            '" data-offer="' + p.seat + '" inputmode="numeric" dir="ltr" style="text-align:center"></div>').join('');
+          h += '<div class="action-row" style="margin-top:8px">' +
+            '<button class="btn btn-gold" data-act="offers:submit">🔁 إعادة العرض (جولة ' + (round + 1) + ')</button>' +
+            '<button class="btn btn-red" data-act="neg:reveal">🃏 فرش الأوراق وتثبيت المعاندين</button></div>' +
+            '<div class="market-log" id="market-log"></div>';
+        } else h += '<div class="action-title">⏳ بانتظار قرار المشرّف…</div>' +
+          (sup.type === 'bot' ? '<button class="btn btn-sm btn-outline" data-act="skipBot">تخطي ⏩</button>' : '');
         break;
       }
       case 'result': {
@@ -484,13 +521,20 @@
     renderMarket();
   }
   function banner(title, sub) { return '<div class="phase-banner">' + title + '<br><span class="muted" style="font-weight:400;font-size:10px">' + sub + '</span></div>'; }
+  function responseWord(p) {
+    return { accept: 'قبل العرض', reject: 'رافض', insist: 'مُصرّ على الكشف', counter: 'يفاوض' }[p.response] || 'بلا رد';
+  }
 
   /* ------------------------------- الدردشة ---------------------------- */
   function renderChat() {
     const st = App.state;
-    const msgs = (st.chat || []).map(m => ({ at: m.at, html: '<div class="chat-msg"><span class="who">' + esc(m.name) + '</span>' + esc(m.text) + '</div>' }));
+    const msgs = (st.chat || []).map(m => ({ at: m.at, html: m.emoji
+      ? '<div class="chat-msg emoji-msg"><span class="who">' + esc(m.name) + '</span><span class="chat-emoji">' + esc(m.text) + '</span></div>'
+      : '<div class="chat-msg"><span class="who">' + esc(m.name) + '</span>' + esc(m.text) + '</div>' }));
     const logs = (st.log || []).map(m => ({ at: m.at || 0, html: '<div class="chat-msg sys">' + esc(m.text) + '</div>' }));
-    const net = (App.netChat || []).map(m => ({ at: m.at, html: '<div class="chat-msg"><span class="who">' + esc(m.name) + '</span>' + esc(m.text) + '</div>' }));
+    const net = (App.netChat || []).map(m => ({ at: m.at, html: m.emoji
+      ? '<div class="chat-msg emoji-msg"><span class="who">' + esc(m.name) + '</span><span class="chat-emoji">' + esc(m.text) + '</span></div>'
+      : '<div class="chat-msg"><span class="who">' + esc(m.name) + '</span>' + esc(m.text) + '</div>' }));
     const all = msgs.concat(logs, net).sort((a, b) => a.at - b.at).slice(-60);
     const sig = all.length + ':' + (all.length ? all[all.length - 1].at : 0);
     if (sig === lastChatSig) return;
@@ -526,7 +570,7 @@
     const tabs = ['الأساسيات', 'قوة الأوراق', 'السوق', 'المشرّف', 'التفاوض', 'التسوية', 'الرحمة والإيقاف', 'الأنماط والشبكة'];
     const body = [
       /* 0 */ '<div class="rule-sec"><h4>ما هي «تجارة»؟</h4><p>لعبة ورق اجتماعية لعدد <span class="hl">2 إلى 10 لاعبين</span>، تُوزّع <span class="hl">4 أوراق</span> لكل لاعب سراً من رزم تحتوي <span class="hl">J · Q · K · البنط</span>. الهدف ليس أقوى ورقة فقط، بل <span class="hl">إدارة السوق والتمويه والتفاوض</span>.</p>' +
-        '<h4>مسار الجولة</h4><ul><li>يُفتح <b>السوق</b> ويدخل اللاعبون بمبالغ متنوعة (بلا حد أدنى للرفع).</li><li>صاحب <b>أعلى مبلغ دخول</b> يصبح <b>المشرّف</b>.</li><li>المشرّف يختار <b>الكل مثبت</b> أو <b>عرض الانسحاب والتفاوض</b>.</li><li>تُكشف أوراق الباقين في <b>المفارشة</b> ويفوز صاحب اليد الأقوى.</li></ul>' +
+        '<h4>مسار الجولة</h4><ul><li>يُفتح <b>السوق</b> ويدخل كل لاعب <b>مرة واحدة فقط</b> بمبلغ لا يقل عن أعلى دخول سبقه.</li><li>صاحب <b>أعلى مبلغ دخول</b> يصبح <b>المشرّف</b>.</li><li>المشرّف يختار <b>الكل مثبت</b> أو <b>عرض الانسحاب والتفاوض</b>.</li><li>تُكشف أوراق الباقين في <b>المفارشة</b> ويفوز صاحب اليد الأقوى.</li></ul>' +
         '<div class="ex">💡 لك كامل الحرية في التمويه والترهيب وإيهام الآخرين بقوة أوراقك حتى لو كانت ضعيفة.</div></div>',
       /* 1 */ '<div class="rule-sec"><h4>ترتيب البطاقات (من الأضعف للأقوى)</h4><p class="hl">J ⟶ Q ⟶ K ⟶ البنط (الأقوى)</p>' +
         '<h4>قوة اليد = الكثرة والتكرار أولاً</h4>' +
@@ -538,29 +582,33 @@
         '<tr><td>5</td><td>أوراق متفرقة</td><td>J Q K بنط</td></tr></table>' +
         '<div class="ex"><b>مثال حاسم:</b> أربع أوراق <span class="hl">J</span> أقوى من ورقتَي <span class="hl">بنط</span> + ورقتَي <span class="hl">Q</span>، لأن الرباعية تتفوق على الزوجين مهما علت رتبة الأوراق.</div>' +
         '<p>داخل الفئة الواحدة تُحسم المقارنة برتبة المجموعة ثم بالأوراق المرافقة (الكيكرز) تنازلياً. عند <b>التعادل التام</b> يُحسم تلقائياً لصالح صاحب أعلى مبلغ دخول، ثم المقعد الأسبق.</p></div>',
-      /* 2 */ '<div class="rule-sec"><h4>المزايدة والسوق</h4><ul>' +
+      /* 2 */ '<div class="rule-sec"><h4>السوق: دخول واحد + حد أدنى</h4><ul>' +
         '<li>ينظر كل لاعب لأوراقه <b>سراً</b>، ويبدأ <b>العرض الأولي بلاعب عشوائي</b> في الجولة الأولى، ثم ينتقل الدور <b>بالترتيب</b> في الجولات التالية.</li>' +
-        '<li><span class="hl">لا يوجد حد أدنى لرفع السعر</span>: تستطيع رفع المبلغ بزيادة قدرها 1 فقط لانتزاع الصدارة.</li>' +
+        '<li><span class="hl">لكل لاعب دخول واحد فقط في الجولة</span>: لا دورات رفع إضافية ولا عودة لمن دخل أو مرّر. بعد آخر لاعب يُغلق السوق فوراً.</li>' +
+        '<li><span class="hl">الحد الأدنى للدخول = أعلى مبلغ دخل به لاعب قبلك</span>. لا يصح أن يدخل من بعده بأقل منه؛ وإن حاول يُرفع دخوله تلقائياً إلى الحد الأدنى. الدخول بمساوٍ له مسموح، وبأعلى منه بلا سقف سوى رصيدك.</li>' +
+        '<li><span class="hl">الاستثناء الوحيد</span>: إن لم يكن في رصيدك أكثر من الحد الأدنى، <b>تدخل بكامل رصيدك</b> (حتى لو كان أقل).</li>' +
         '<li>يحق دخول مبالغ كبيرة لاستدراج «الهوامير» ثم مباغتتهم برفض المفاوضات وهزيمتهم = <b>الإطاحة بالهوامير</b>.</li>' +
-        '<li>الدخول بـ <b>صفر</b> مسموح للتمويه، وكذلك التمرير أو الانسحاب دون خسارة.</li>' +
+        '<li>الدخول بـ <b>صفر</b> مسموح إن لم يسبقك أحد بمبلغ، وكذلك التمرير أو الانسحاب دون خسارة.</li>' +
         '<li>تُدمج الرزم تلقائياً: رزمة لـ 2–4 لاعبين، رزمتان لـ 5–8، ثلاث رزم لـ 9–10، فلا تنقص الأوراق أبداً.</li></ul></div>',
       /* 3 */ '<div class="rule-sec"><h4>دور المشرّف</h4><p>اللاعب صاحب <span class="hl">أعلى مبلغ دخول</span> في السوق. يختار أحد المسارين:</p>' +
         '<h4>1) الكل مثبت 🔒</h4><p>يُجبر جميع الداخلين على كشف أوراقهم، ويفوز صاحب اليد الأقوى <b>حتى لو لم يكن المشرّف أو صاحب أعلى مبلغ</b>.</p>' +
-        '<h4>2) عرض الانسحاب والتفاوض 🤝</h4><p>يعرض المشرّف على كل داخل مبلغاً للانسحاب <b>من إجمالي المبلغ الذي دخل به</b> (حتى لو كان 0). لكل لاعب: <b>قبول</b>، <b>رفض</b>، <b>تفاوض</b> على مبلغ يحدده، أو <b>الإصرار على الرفض</b> وطلب كشف الأوراق، ضمن الوقت المحدد.</p></div>',
-      /* 4 */ '<div class="rule-sec"><h4>التفاوض</h4><ul>' +
-        '<li>وقت التفاوض قابل للتحديد قبل المباراة: 10 / 15 / 20 / 30 ثانية أو <b>مفتوح</b>.</li>' +
-        '<li>من لا يرد قبل انتهاء الوقت يُعتبر <b>مُصرّاً على الرفض</b> ويُكشف ورقه.</li>' +
-        '<li>التفاوض المضاد: يعرض اللاعب مبلغاً جديداً، وللمشرّف القبول (ينسحب اللاعب بالمبلغ الجديد) أو الرفض (كشف الأوراق).</li>' +
+        '<h4>2) عرض الانسحاب والتفاوض 🤝</h4><p>يعرض المشرّف على كل داخل مبلغاً للانسحاب <b>من إجمالي المبلغ الذي دخل به</b> (حتى لو كان 0). لكل لاعب: <b>قبول</b>، <b>رفض</b>، <b>تفاوض</b> على مبلغ يحدده، أو <b>الإصرار على الرفض</b> وطلب كشف الأوراق، ضمن وقت كل جولة، ويمكن إعادة العرض أكثر من مرة.</p></div>',
+      /* 4 */ '<div class="rule-sec"><h4>التفاوض المتكرر حتى الرضى</h4><ul>' +
+        '<li>وقت التفاوض قابل للتحديد قبل المباراة: 10 / 15 / 20 / 30 ثانية أو <b>مفتوح</b>، ويُحتسب <b>لكل جولة تفاوض</b> على حدة.</li>' +
+        '<li>من لا يرد قبل انتهاء وقت الجولة يُعتبر <b>مُصرّاً على الرفض</b>، ولا يُكشف ورقه فوراً بل يبقى بانتظار قرار المشرّف.</li>' +
+        '<li><span class="hl">التفاوض لا ينتهي بجولة واحدة</span>: بعد ردود الجميع يختار المشرّف <b>إعادة عرض مبالغ جديدة</b> على المعاندين (جولة ثانية وثالثة وهكذا) <b>حتى الوصول إلى قناعة ورضى</b>، أو <b>فرش الأوراق وتثبيت المعاندين</b> في أي لحظة.</li>' +
+        '<li>التفاوض المضاد: يعرض اللاعب مبلغاً جديداً، وللمشرّف <b>القبول</b> (ينسحب اللاعب بالمبلغ الجديد) أو <b>الرفض</b> مع إمكانية إعادة العرض بدلاً من إنهاء الجولة.</li>' +
+        '<li>مجموع كل العروض المقبولة لا يتجاوز <b>إجمالي ما دخل به المشرّف</b> (وقد يكون 0).</li>' +
         '<li>إذا قبل اللاعب العرض فلا يُعطى المبلغ <b>إلا إذا فاز المشرّف في المفارشة</b>. أمّا إذا خسر المشرّف فلا يخسر المنسحب من قِبل عرضه، لكنه <b>لا يربح شيئاً</b>.</li>' +
         '<li>عبارات سريعة بنقرة واحدة: ' + T.QUICK_PHRASES.map(esc).join(' · ') + '</li></ul></div>',
       /* 5 */ '<div class="rule-sec"><h4>التسوية المالية الدقيقة</h4><ul>' +
         '<li>كل <b>خاسر</b> يخسر المبلغ الذي <b>دخل به هو</b> السوق، ويُخصم من رصيده.</li>' +
         '<li><b>الفائز يربح فقط المبلغ الذي دخل به هو</b> من أرصدة الخاسرين (لا مجموع ما دخلوه).</li>' +
         '<li>المنسحب بعرض: لا يخسر دخوله؛ ويأخذ عرضه فقط إن فاز المشرّف (ويُخصم من رصيد المشرّف).</li></ul>' +
-        '<div class="ex"><b>مثال عملي:</b> بدأ الجميع بـ 50,000. دخل <b>صالح</b> بـ 5,000 و<b>علي</b> بـ 20,000 و<b>أحمد</b> بـ 10,000، فاز صالح:<br>' +
+        '<div class="ex"><b>مثال عملي:</b> بدأ الجميع بـ 50,000. دخل <b>صالح</b> بـ 5,000 ثم <b>أحمد</b> بـ 10,000 ثم <b>علي</b> بـ 20,000 (كل لاعب مرة واحدة، والدخول غير متناقص)، فاز صالح:<br>' +
         'صالح <span class="hl">55,000</span> · علي <span class="hl">30,000</span> · أحمد <span class="hl">40,000</span></div></div>',
       /* 6 */ '<div class="rule-sec"><h4>الإفلاس والرحمة</h4><p>إذا نفد رصيد لاعب بالكامل يحصل تلقائياً على <span class="hl">5,000 «رحمة»</span> للاستمرار، و<b>تمنح مرة واحدة فقط في المباراة</b>.</p>' +
-        '<h4>الإيقاف</h4><p>إذا خسر «الرحمة» أيضاً (أو نفد رصيده بعد استنفادها) فلا رحمة له، ويُعاقب <span class="hl">بالإيقاف 3 جولات كاملة</span> لا يستلم فيها أوراقاً ولا يشارك في السوق. يعود بعدها للطاولة (ويمكنه الدخول بصفر للتمويه).</p>' +
+        '<h4>الإيقاف</h4><p>إذا خسر «الرحمة» أيضاً (أو نفد رصيده بعد استنفادها) فلا رحمة له، ويُعاقب <span class="hl">بالإيقاف 3 جولات كاملة</span> لا يستلم فيها أوراقاً ولا يشارك في السوق. يعود بعدها للطاولة برصيده المتبقي.</p>' +
         '<div class="ex">يُسجّل في السجل: مرات الرحمة، مرات الإيقاف، الإطاحة بالهوامير، أكبر ربح وأكبر خسارة.</div></div>',
       /* 7 */ '<div class="rule-sec"><h4>أنماط اللعب</h4><ul>' +
         '<li><b>فردي ضد البوتات</b>: ستة مستويات من «سهل جداً» إلى «أسطوري» مع 8 شخصيات (الهوّامير، المراوغ، المفاوض، المحافظ، المتهور، القنّاص، الهادي، الزعيم).</li>' +
@@ -702,7 +750,8 @@
       case 'handoff:ok': App.handoffDone(); break;
 
       case 'bid:preset': { const inp = $('bid-amount'); if (inp) inp.value = d.v; AU.play('chip'); break; }
-      case 'bid:plus1': { const inp = $('bid-amount'); if (inp) inp.value = (App.state.auction.highest || 0) + 1; AU.play('raise'); break; }
+      case 'bid:plus1': { const inp = $('bid-amount'); if (inp) inp.value = (App.state.auction.leaderId === null ? 0 : App.state.auction.highest) + 1; AU.play('raise'); break; }
+      case 'bid:allin': { const inp = $('bid-amount'); const who = App.state.players[App.currentActorSeat()]; if (inp && who) inp.value = who.balance; AU.play('raise'); break; }
       case 'bid:enter': { const inp = $('bid-amount'); App.act({ type: 'bid', seat: App.currentActorSeat(), kind: 'enter', amount: inp ? inp.value : 0 }); break; }
       case 'bid:pass': App.act({ type: 'bid', seat: App.currentActorSeat(), kind: 'pass' }); break;
       case 'bid:fold': App.act({ type: 'bid', seat: App.currentActorSeat(), kind: 'fold' }); break;
@@ -725,6 +774,7 @@
       case 'resp:counter': { const inp = $('counter-amount'); App.respond(+d.seat, 'counter', inp ? inp.value : 0); break; }
       case 'counter:yes': App.act({ type: 'counter:decide', seat: App.state.supervisorId, target: +d.seat, accept: true }); break;
       case 'counter:no': App.act({ type: 'counter:decide', seat: App.state.supervisorId, target: +d.seat, accept: false }); break;
+      case 'neg:reveal': App.act({ type: 'negotiation:reveal', seat: App.state.supervisorId }); break;
       case 'timer:force': App.forceTimeout(); break;
       case 'skipBot': App.skipBot(); break;
       case 'next': closeModal(); App.act({ type: 'next' }); break;

@@ -1,5 +1,5 @@
 /* عامل الخدمة للنسخة المستضافة على الشبكة المحلية (لا يُستخدم داخل APK) */
-const CACHE = 'tijara-v2';
+const CACHE = 'tijara-v3';
 const ASSETS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/engine.js', './js/store.js', './js/audio.js', './js/fx.js',

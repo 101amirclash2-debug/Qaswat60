@@ -17,13 +17,18 @@ function seats(n, type = 'human') {
     difficulty: 'normal', personality: 'calm', avatar: '🧔'
   }));
 }
+function setOrder(g, order) {
+  g.state.auction.order = order.slice();
+  g.state.auction.turnPos = 0;
+  return g;
+}
 function newGame(n = 3, overrides = {}) {
   const g = new T.Game({ seed: 12345 });
   g.start(Object.assign({
     seats: seats(n), startBalance: 50000,
     negotiationSec: 15, maxRounds: 20
   }, overrides));
-  g.state.auction.maxPasses = 1;
+  setOrder(g, Array.from({ length: n }, (_, i) => i));
   for (const p of g.state.players) {
     if (p.type === 'human') g.dispatch({ type: 'privacy:ready', seat: p.seat });
   }
@@ -40,6 +45,11 @@ function enterAll(g, amounts, { fold = [] } = {}) {
     else g.dispatch({ type: 'bid', seat, kind: 'enter', amount: amounts[seat] || 0 });
   }
   return g;
+}
+/** ترتيب دخول تصاعدي يضع المشرّف (أعلى مبلغ) في آخر الدور */
+function ordered(g, amounts, order) {
+  setOrder(g, order);
+  return enterAll(g, amounts);
 }
 
 /* --------------------------- الرزم والتوزيع --------------------------- */
@@ -92,12 +102,78 @@ test('حسم التعادل داخل الفئة بالرتبة ثم الكيكر
   assert.equal(T.compareEval(e('JQKB'), e('BQKJ')), 0, 'نفس الأوراق = تعادل تام');
 });
 
+/* ===================== السوق: دخول واحد + حد أدنى ==================== */
+test('كل لاعب يدخل السوق مرة واحدة فقط في الجولة (بلا دورات مزايدة)', () => {
+  const g = newGame(3);
+  const a = g.state.auction;
+  assert.equal(a.passNo, 1);
+  assert.equal(a.maxPasses, 1);
+  g.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 1000 });
+  // محاولة ثانية من نفس اللاعب تُرفض: دوره انتهى
+  g.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 9000 });
+  assert.equal(a.history.length, 1, 'لا يُسجّل دخول ثانٍ');
+  g.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 2000 });
+  g.dispatch({ type: 'bid', seat: 2, kind: 'enter', amount: 3000 });
+  assert.equal(a.history.length, 3, 'ثلاثة أدوار فقط');
+  assert.equal(a.passNo, 1, 'لا دورة رفع جديدة');
+  assert.deepEqual(Object.keys(a.acted).map(Number).sort((x, y) => x - y), [0, 1, 2]);
+  assert.equal(g.state.phase, 'supervisor', 'يُغلق السوق فوراً بعد آخر لاعب');
+  assert.equal(g.state.supervisorId, 2);
+});
+
+test('الحد الأدنى = أعلى دخول سابق: لا يصح الدخول بأقل منه', () => {
+  const g = newGame(3);
+  g.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 5000 });
+  g.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 100 });   // يُرفع للحد
+  g.dispatch({ type: 'bid', seat: 2, kind: 'enter', amount: 6000 });
+  assert.deepEqual(g.state.players.map(p => p.entry), [5000, 5000, 6000]);
+  assert.equal(g.state.auction.highest, 6000);
+  assert.equal(g.state.supervisorId, 2);
+  assert.equal(g.state.phase, 'supervisor');
+  // الدخول بمساواة الحد مسموح
+  const g2 = newGame(2);
+  g2.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 7000 });
+  g2.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 7000 });
+  assert.deepEqual(g2.state.players.map(p => p.entry), [7000, 7000]);
+  assert.equal(g2.state.supervisorId, 0, 'التعادل يُحسم للأسبق في ترتيب الدور');
+});
+
+test('الاستثناء: من لا يملك الحد الأدنى يدخل بكامل رصيده', () => {
+  const g = newGame(3);
+  g.state.players[1].balance = 3000;
+  g.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 10000 });
+  g.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 10000 }); // كل الرصيد
+  g.dispatch({ type: 'bid', seat: 2, kind: 'enter', amount: 100 });   // يُرفع للحد
+  assert.deepEqual(g.state.players.map(p => p.entry), [10000, 3000, 10000]);
+  assert.equal(g.state.auction.history[1].allIn, true);
+  assert.ok(g.state.players[1].entry < g.state.auction.highest, 'الاستثناء الوحيد المسموح');
+  assert.equal(g.state.phase, 'supervisor');
+});
+
+test('لا يمكن الدخول بأكثر من الرصيد، والدخول بصفر مسموح قبل أي مبلغ', () => {
+  const g = newGame(2);
+  g.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 999999999 });
+  assert.equal(g.state.players[0].entry, 50000);
+  g.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 0 });
+  assert.equal(g.state.players[1].entry, 50000, 'الحد الأدنى 50,000 يُطبّق');
+  assert.equal(g.state.phase, 'supervisor');
+
+  const g2 = newGame(2);
+  g2.dispatch({ type: 'bid', seat: 0, kind: 'enter', amount: 0 });
+  g2.dispatch({ type: 'bid', seat: 1, kind: 'enter', amount: 0 });
+  assert.deepEqual(g2.state.players.map(p => p.entry), [0, 0]);
+  assert.equal(g2.state.supervisorId, 0);
+});
+
 /* ---------------------- التسوية: المثال العملي ------------------------ */
 test('التسوية الدقيقة: صالح 5,000 يفوز → 55,000 / علي 30,000 / أحمد 40,000', () => {
   const g = newGame(3);
-  // صالح = مقعد 0 (أقوى يد: رباعية J)، علي = 1، أحمد = 2
+  g.state.players[0].name = 'صالح';
+  g.state.players[1].name = 'علي';
+  g.state.players[2].name = 'أحمد';
   setHands(g, ['JJJJ', 'QQQK', 'BBQQ']);
-  enterAll(g, [5000, 20000, 10000]);
+  // دخول غير متناقص: صالح 5,000 ← أحمد 10,000 ← علي 20,000
+  ordered(g, [5000, 20000, 10000], [0, 2, 1]);
   assert.equal(g.state.phase, 'supervisor');
   assert.equal(g.state.supervisorId, 1, 'أعلى مبلغ دخول هو المشرّف');
   g.dispatch({ type: 'supervisor:choose', seat: 1, mode: 'fix' });
@@ -123,33 +199,34 @@ test('«الكل مثبت» يكشف أوراق الجميع ويفوز الأق
 /* ------------------------- الانسحاب والتفاوض -------------------------- */
 test('قبول العرض: يُدفع فقط إذا فاز المشرّف ويُخصم منه', () => {
   const g = newGame(3);
-  // المشرّف (مقعد 0) يملك أقوى يد؛ مقعد 1 يقبل 3,000؛ مقعد 2 يرفض
   setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
-  enterAll(g, [20000, 10000, 5000]);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
   assert.equal(g.state.supervisorId, 0);
   g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
   g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 3000, 2: 0 } });
   g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'accept' });
   g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'insist' });
+  assert.equal(g.state.phase, 'counters', 'المشرّف يقرّر بعد الردود');
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
   const r = g.state.result;
   assert.equal(r.winnerId, 0);
   assert.equal(r.supWon, true);
   assert.equal(g.state.players[1].balance, 53000, 'المنسحب يأخذ عرضه ولا يخسر دخوله');
   assert.equal(g.state.players[2].balance, 45000, 'الرافض يخسر مبلغ دخوله');
-  // المشرّف: +20,000 ربح − 3,000 عرض = 67,000
-  assert.equal(g.state.players[0].balance, 67000);
+  assert.equal(g.state.players[0].balance, 67000, '+20,000 ربح − 3,000 عرض');
   assert.equal(r.offersPaid, 3000);
   assert.ok(!r.contenders.includes(1), 'المنسحب لا يُكشف ورقه');
 });
 
 test('خسارة المشرّف: المنسحب لا يربح ولا يخسر', () => {
   const g = newGame(3);
-  setHands(g, ['JJJJ', 'BBBB', 'QQQQ']);   // المشرّف 0 أضعف من 1
-  enterAll(g, [20000, 10000, 5000]);
+  setHands(g, ['JJJJ', 'BBBB', 'QQQQ']);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
   g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
   g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 0, 2: 4000 } });
   g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'accept' });
   g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'insist' });
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
   const r = g.state.result;
   assert.equal(r.winnerId, 1);
   assert.equal(r.supWon, false);
@@ -181,41 +258,122 @@ test('مجموع العروض لا يتجاوز ما دخل به المشرّف 
 test('التفاوض المضاد: قبول المشرّف يُنسحب اللاعب بالمبلغ الجديد', () => {
   const g = newGame(3);
   setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
-  enterAll(g, [20000, 10000, 5000]);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
   g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
   g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 1000, 2: 1000 } });
   g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'counter', amount: 4000 });
   g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'accept' });
   assert.equal(g.state.phase, 'counters');
   g.dispatch({ type: 'counter:decide', seat: 0, target: 1, accept: true });
+  assert.equal(g.state.phase, 'counters', 'القبول لا يُنهي الجولة تلقائياً');
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
   assert.equal(g.state.phase, 'result');
   assert.equal(g.state.players[1].balance, 54000);
 });
 
-test('انتهاء وقت التفاوض يُعتبر إصراراً على كشف الأوراق', () => {
+test('رفض التفاوض المضاد يُبقي باب التفاوض مفتوحاً', () => {
+  const g = newGame(3);
+  setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
+  g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 1000, 2: 1000 } });
+  g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'counter', amount: 4000 });
+  g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'reject' });
+  assert.equal(g.state.phase, 'counters');
+  g.dispatch({ type: 'counter:decide', seat: 0, target: 1, accept: false });
+  assert.equal(g.state.phase, 'counters', 'الرفض لا يعني كشف الأوراق فوراً');
+  assert.equal(g.state.players[1].response, 'reject');
+  assert.equal(g.state.counterPending.length, 0);
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
+  assert.equal(g.state.phase, 'result');
+});
+
+test('التفاوض يتكرر أكثر من جولة حتى القناعة والرضى', () => {
+  const g = newGame(3);
+  setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
+  g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 1000, 2: 1000 } });
+  assert.equal(g.state.offersRound, 1);
+
+  // الجولة 1: أحدهما يفاوض والآخر يرفض
+  g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'counter', amount: 4000 });
+  g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'reject' });
+  assert.equal(g.state.phase, 'counters');
+  assert.equal(g.state.offersHistory.length, 1);
+
+  // الجولة 2: يعيد المشرّف العرض
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 3000, 2: 1500 } });
+  assert.equal(g.state.phase, 'negotiation');
+  assert.equal(g.state.offersRound, 2);
+  assert.equal(g.state.players[1].response, null, 'أُعيد فتح الرد');
+  assert.equal(g.state.players[2].response, null);
+  g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'counter', amount: 5000 });
+  g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'accept' });
+  assert.equal(g.state.phase, 'counters');
+  assert.equal(g.state.offersHistory.length, 2);
+
+  // الجولة 3: العرض الحاسم، والمنسحب السابق لا يُزعج مجدداً
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 5000 } });
+  assert.equal(g.state.offersRound, 3);
+  assert.equal(g.state.phase, 'negotiation');
+  assert.equal(g.state.players[2].response, 'accept');
+  g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'accept' });
+  assert.equal(g.state.phase, 'result', 'الرضى التام يُنهي التفاوض');
+  assert.equal(g.state.result.negotiationRounds, 3);
+  assert.equal(g.state.offersHistory.length, 3);
+  assert.equal(g.state.players[1].balance, 55000, 'أخذ مبلغ الجولة الأخيرة');
+  assert.equal(g.state.players[2].balance, 51500, 'أخذ عرض جولته');
+  assert.equal(g.state.result.offersPaid, 6500);
+});
+
+test('«فرش الأوراق وتثبيت المعاندين» بقرار المشرّف', () => {
+  const g = newGame(3);
+  setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
+  g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 1000, 2: 1000 } });
+  g.dispatch({ type: 'negotiate:respond', seat: 1, choice: 'insist' });
+  g.dispatch({ type: 'negotiate:respond', seat: 2, choice: 'reject' });
+  assert.equal(g.state.phase, 'counters');
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
+  assert.equal(g.state.phase, 'result');
+  assert.equal(g.state.result.byReveal, true);
+  assert.deepEqual(g.state.result.contenders.slice().sort(), [0, 1, 2]);
+  assert.equal(g.state.result.negotiationRounds, 1);
+  assert.ok(g.events.some(e => e.kind === 'log' && e.text.indexOf('فرش الأوراق') !== -1), 'يُسجّل حدث الفرش');
+});
+
+test('انتهاء وقت التفاوض يُعتبر إصراراً ويترك القرار للمشرّف', () => {
   let clock = 1000;
   const g = new T.Game({ seed: 7, now: () => clock });
   g.start({ seats: seats(3), startBalance: 50000, negotiationSec: 10, maxRounds: 4 });
-  g.state.auction.maxPasses = 1;
   for (const p of g.state.players) g.dispatch({ type: 'privacy:ready', seat: p.seat });
   setHands(g, ['BBBB', 'JJJJ', 'QQQQ']);
-  enterAll(g, [20000, 10000, 5000]);
+  ordered(g, [20000, 10000, 5000], [2, 1, 0]);
   g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
   g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 1000, 2: 1000 } });
   assert.equal(g.state.negotiationEndsAt, 11000);
   clock = 12000;
   g.dispatch({ type: 'negotiation:timeout' });
-  assert.equal(g.state.phase, 'result');
+  assert.equal(g.state.phase, 'counters', 'لا يُكشف الورق قسراً قبل قرار المشرّف');
   assert.equal(g.state.players[1].response, 'insist');
   assert.equal(g.state.players[2].response, 'insist');
+  assert.equal(g.state.offersHistory.length, 1);
+  // يمكنه إعادة العرض رغم انتهاء الوقت
+  g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 2000, 2: 2000 } });
+  assert.equal(g.state.offersRound, 2);
+  assert.equal(g.state.phase, 'negotiation');
+  g.dispatch({ type: 'negotiation:reveal', seat: 0 });
+  assert.equal(g.state.phase, 'result');
 });
 
 test('الوقت «مفتوح» لا يضع مؤقتاً', () => {
   const g = new T.Game({ seed: 3, now: () => 500 });
   g.start({ seats: seats(2), startBalance: 50000, negotiationSec: 0 });
-  g.state.auction.maxPasses = 1;
   for (const p of g.state.players) g.dispatch({ type: 'privacy:ready', seat: p.seat });
-  enterAll(g, [1000, 500]);
+  setOrder(g, [0, 1]);
+  enterAll(g, [1000, 1000]);
   g.dispatch({ type: 'supervisor:choose', seat: 0, mode: 'negotiate' });
   g.dispatch({ type: 'offers:submit', seat: 0, offers: { 1: 0 } });
   assert.equal(g.state.negotiationEndsAt, 0);
@@ -224,7 +382,6 @@ test('الوقت «مفتوح» لا يضع مؤقتاً', () => {
 /* --------------------------- الرحمة والإيقاف -------------------------- */
 test('الرحمة 5,000 مرة واحدة ثم إيقاف 3 جولات كاملة', () => {
   const g = newGame(2, { startBalance: 50000, maxRounds: 12 });
-  // مقعد 1 يخسر كامل رصيده مرتين
   setHands(g, ['BBBB', 'JJJJ']);
   enterAll(g, [1000, 50000]);
   g.dispatch({ type: 'supervisor:choose', seat: g.state.supervisorId, mode: 'fix' });
@@ -233,9 +390,9 @@ test('الرحمة 5,000 مرة واحدة ثم إيقاف 3 جولات كامل
   assert.equal(g.state.stats.mercy, 1);
   assert.equal(g.state.players[1].suspendedFor, 0);
 
-  g.dispatch({ type: 'next' });                 // الجولة التالية
+  g.dispatch({ type: 'next' });
   setHands(g, ['BBBB', 'JJJJ']);
-  g.state.auction.maxPasses = 1;
+  setOrder(g, [0, 1]);
   for (const p of g.state.players) if (p.type === 'human') g.dispatch({ type: 'privacy:ready', seat: p.seat });
   enterAll(g, [1000, 5000]);
   g.dispatch({ type: 'supervisor:choose', seat: g.state.supervisorId, mode: 'fix' });
@@ -244,14 +401,12 @@ test('الرحمة 5,000 مرة واحدة ثم إيقاف 3 جولات كامل
   assert.equal(g.state.stats.suspensions, 1);
   const startRound = g.state.round;
 
-  // ثلاث جولات كاملة بلا أوراق للموقوف
   for (let i = 1; i <= 3; i++) {
     g.dispatch({ type: 'next' });
     assert.equal(g.state.players[1].hand.length, 0, 'الموقوف لا يستلم أوراقاً في الجولة ' + i);
     assert.equal(g.state.round, startRound + i);
     assert.ok(!g.state.auction.order.includes(1));
     g.dispatch({ type: 'privacy:ready', seat: 0 });
-    // أجبر نهاية الجولة بلا دخول أحد
     for (const seat of g.state.auction.order.slice()) g.dispatch({ type: 'bid', seat, kind: 'fold' });
     assert.equal(g.state.phase, 'result');
   }
@@ -269,11 +424,10 @@ test('البوتات تكمل مباراة كاملة بـ 10 لاعبين دو�
     const st = g.state;
     if (st.phase === 'privacy') break;
     if (st.phase === 'result') { g.dispatch({ type: 'next' }); continue; }
-    if (st.phase === 'negotiation' && st.negotiationEndsAt) { /* لا مؤقت في الاختبار */ }
     const actor = g.currentActor();
     if (!actor) {
       if (st.phase === 'negotiation') { g.dispatch({ type: 'negotiation:timeout' }); continue; }
-      if (st.phase === 'counters') { g.dispatch({ type: 'counter:decide', seat: st.counterPending[0], accept: false }); continue; }
+      if (st.phase === 'counters') { g.dispatch({ type: 'negotiation:reveal', seat: st.supervisorId }); continue; }
       break;
     }
     const act = g.botAction(actor.seat);
@@ -284,26 +438,6 @@ test('البوتات تكمل مباراة كاملة بـ 10 لاعبين دو�
   assert.equal(g.state.phase, 'matchEnd', 'انتهت المباراة (guard=' + guard + ')');
   assert.equal(g.state.matchSummary.players, 10);
   assert.equal(g.state.matchSummary.rounds, 12);
-});
-
-test('لا حد أدنى للرفع: +1 ينتزع الصدارة', () => {
-  const g = newGame(2);
-  g.state.auction.maxPasses = 1;
-  const order = g.state.auction.order.slice();
-  g.dispatch({ type: 'bid', seat: order[0], kind: 'enter', amount: 5000 });
-  g.dispatch({ type: 'bid', seat: order[1], kind: 'enter', amount: 5001 });
-  assert.equal(g.state.auction.highest, 5001);
-  assert.equal(g.state.supervisorId, order[1]);
-});
-
-test('لا يمكن الدخول بأكثر من الرصيد، والدخول بصفر مسموح', () => {
-  const g = newGame(2);
-  const order = g.state.auction.order.slice();
-  g.dispatch({ type: 'bid', seat: order[0], kind: 'enter', amount: 999999999 });
-  assert.equal(g.state.players[order[0]].entry, 50000);
-  g.dispatch({ type: 'bid', seat: order[1], kind: 'enter', amount: 0 });
-  assert.equal(g.state.players[order[1]].entry, 0);
-  assert.equal(g.state.phase, 'supervisor');
 });
 
 /* -------------------------- إخفاء أوراق الشبكة ----------------------- */
@@ -326,4 +460,13 @@ test('جولة بلا داخلين تُعاد دون خسائر', () => {
   assert.equal(g.state.phase, 'result');
   assert.equal(g.state.result.void, true);
   assert.ok(g.state.players.every(p => p.balance === 50000));
+});
+
+test('الإيموجي يُضاف لسجل الدردشة كفقاعة متحركة', () => {
+  const g = newGame(2);
+  g.dispatch({ type: 'emoji', seat: 0, emoji: '🤪' });
+  const last = g.state.chat[g.state.chat.length - 1];
+  assert.equal(last.text, '🤪');
+  assert.equal(last.emoji, true);
+  assert.equal(g.drainEvents().some(e => e.kind === 'emoji'), true);
 });

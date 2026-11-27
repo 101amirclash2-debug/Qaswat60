@@ -48,7 +48,7 @@ function humanAction(App, st, seat) {
     case 'supervisor': return { type: 'supervisor:choose', seat, mode: 'fix' };
     case 'offers': return { type: 'offers:submit', seat, offers: {} };
     case 'negotiation': return { type: 'negotiate:respond', seat, choice: 'insist' };
-    case 'counters': return { type: 'counter:decide', seat: st.supervisorId, target: (st.counterPending || [])[0], accept: false };
+    case 'counters': return { type: 'negotiation:reveal', seat: st.supervisorId };
     default: return null;
   }
 }
@@ -87,6 +87,13 @@ test('الواجهة تُحمّل وتُكمل جولة كاملة بـ 6 لاع
   assert.ok(win.document.querySelector('.privacy-card .pcard'), 'أوراق اللاعب ظهرت');
   click(win, '[data-act="privacy:hide"]');
   assert.equal(App.state.phase, 'auction');
+
+  // الإيموجيات متحركة فعلاً: إزاحة زمنية في المنتقي + فقاعة طائرة + فقاعة في الدردشة
+  const emojiBtn = win.document.querySelector('#emoji-picker button[data-act="emoji"]');
+  assert.ok(emojiBtn && /--i:0/.test(emojiBtn.getAttribute('style') || ''), 'كل إيموجي له إزاحة حركية');
+  click(win, '#emoji-picker button[data-act="emoji"]');
+  assert.ok(win.document.querySelector('.float-emoji'), 'إيموجي متحرك طائر ظهر');
+  assert.ok(win.document.querySelector('.chat-emoji'), 'فقاعة إيموجي متحركة في الدردشة');
 
   // جولة كاملة (البوتات تُشغّل يدوياً لتفادي المؤقتات)
   App.state.settings.negotiationSec = 0;

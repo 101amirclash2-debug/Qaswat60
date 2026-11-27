@@ -221,7 +221,11 @@
           case 'phase':
             if (e.phase === 'auction') { AU.play('chip'); FX.toast('🤑 افتُتح السوق'); }
             if (e.phase === 'supervisor') AU.play('supervisor');
-            if (e.phase === 'negotiation') { this.offerStart = Date.now(); AU.play('offer'); }
+            if (e.phase === 'counters') AU.play('offer');
+            if (e.phase === 'negotiation') {
+              this.offerStart = Date.now(); AU.play('offer');
+              if (e.round > 1) FX.toast('🔁 جولة تفاوض ' + e.round + ' · عروض جديدة');
+            }
             if (e.phase === 'result') AU.play('reveal');
             break;
           case 'log': st.log.push({ text: e.text, tone: e.tone, at: e.at }); if (st.log.length > 80) st.log.shift(); break;
@@ -232,6 +236,7 @@
             break;
           case 'supervisor': st.log.push({ text: e.text, tone: 'red', at: e.at }); FX.toast('👑 ' + e.text); FX.emojiAtSeat('👑', e.seat, true); break;
           case 'offers': st.log.push({ text: e.text, tone: 'cyan', at: e.at }); break;
+          case 'reveal': FX.toast('🃏 فُرشت الأوراق وثُبّت المعاندون'); FX.shake(); break;
           case 'respond': st.log.push({ text: e.text, tone: 'cyan', at: e.at }); AU.play('tap'); break;
           case 'void': st.log.push({ text: e.text, tone: 'muted', at: e.at }); FX.toast(e.text); break;
           case 'chat': AU.play('chat'); break;
@@ -436,6 +441,13 @@
       const p = this.state.players[this.mySeat] || { name: this.settings.myName };
       AU.play('emoji');
       FX.emojiAtSeat(emoji, this.mySeat, true);
+      // فقاعة إيموجي متحركة داخل سجل الدردشة أيضاً (في الوضع المحلي يتولاها المحرّك)
+      if (this.mode !== 'local' && this.state.chat) {
+        this.state.chat.push({ id: 'e' + Date.now(), seat: this.mySeat, name: p.name || '',
+          avatar: p.avatar || '👤', text: emoji, emoji: true, at: Date.now(), bot: false });
+        if (this.state.chat.length > 120) this.state.chat.shift();
+        TijaraUI.renderChat();
+      }
       if (this.mode !== 'local') this.net.sendEmoji(emoji, this.mySeat, p.name);
       else { this.game.dispatch({ type: 'emoji', seat: this.mySeat, emoji: emoji }); this.flushEvents(); }
       S.bumpProfile({ emojis: 1 }); S.checkAchievements();
@@ -495,7 +507,13 @@
         if (this.netChat.length > 120) this.netChat.shift();
         AU.play('chat'); TijaraUI.renderChat();
       });
-      net.on('emoji', m => { FX.emojiAtSeat(m.emoji || '🔥', m.seat === undefined ? 0 : m.seat, true); AU.play('emoji'); });
+      net.on('emoji', m => {
+        const e = m.emoji || '🔥';
+        FX.emojiAtSeat(e, m.seat === undefined ? 0 : m.seat, true);
+        this.netChat.push({ at: Date.now(), name: m.name || 'ضيف', text: e, emoji: true });
+        if (this.netChat.length > 120) this.netChat.shift();
+        AU.play('emoji'); TijaraUI.renderChat();
+      });
     },
     onRemoteState(st) {
       if (!st || !st.players) return;

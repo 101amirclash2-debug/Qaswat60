@@ -49,6 +49,8 @@
     sound: true, music: true, vibration: true, effects: true
   };
 
+  const MAX_OFFER_ROUNDS = 30;       // حماية داخلية من تفاوض لا ينتهي
+
   const QUICK_PHRASES = [
     'ثبت', 'سأثبت', 'أنا الأقوى', 'لست ضعيفاً', 'كم يرضيك',
     'إرضيني', 'إدعموني', 'السوق ليا', 'لا تصدقوه', 'أنا خارج'
@@ -224,7 +226,8 @@
         settings: s, players: players, round: 0,
         startIdx: Math.floor(this.rng() * players.length),  // عشوائي في الجولة الأولى
         phase: 'setup', privacySeen: [], auction: null,
-        supervisorId: null, offers: {}, negotiationEndsAt: 0,
+        supervisorId: null, offers: {}, offersRound: 0, offersHistory: [],
+        negotiationEndsAt: 0,
         result: null, matchSummary: null,
         chat: [], log: [], deckCount: deckCountFor(players.length),
         stats: { rounds: 0, biggestWin: 0, biggestLoss: 0, whaleTakedowns: 0, mercy: 0, suspensions: 0, negotiations: 0 },
@@ -243,6 +246,8 @@
       st.result = null;
       st.supervisorId = null;
       st.offers = {};
+      st.offersRound = 0;
+      st.offersHistory = [];
       st.negotiationEndsAt = 0;
       st.negotiationThisRound = false;
       st.counterPending = [];
@@ -270,8 +275,9 @@
         const idx = (st.startIdx + i) % st.players.length;
         if (st.players[idx].suspendedFor === 0) order.push(idx);
       }
+      // دخول واحد فقط لكل لاعب في الجولة: بلا دورات مزايدة إضافية.
       st.auction = {
-        order: order, turnPos: 0, passNo: 1, maxPasses: 3,
+        order: order, turnPos: 0, passNo: 1, maxPasses: 1,
         highest: 0, leaderId: null, raisedInPass: false, acted: {},
         history: []
       };
@@ -317,6 +323,21 @@
     entrants() {
       return this.state.players.filter(p => p.entry !== null && !p.folded);
     }
+    /** الداخلون الذين لم يقتنعوا بعد بعرض الانسحاب (يمكن إعادة التفاوض معهم) */
+    unresolvedEntrants() {
+      const st = this.state;
+      return st.players.filter(p => p.entry !== null && !p.folded &&
+        p.seat !== st.supervisorId && !(p.withdrawal && p.withdrawal.accepted));
+    }
+    /** ما تبقّى من مبلغ دخول المشرّف بعد خصم العروض المقبولة */
+    offerBudget() {
+      const st = this.state;
+      const sup = st.players[st.supervisorId];
+      const committed = this.entrants()
+        .filter(p => p.withdrawal && p.withdrawal.accepted)
+        .reduce((sum, p) => sum + (p.withdrawal.amount || 0), 0);
+      return Math.max(0, (sup.entry || 0) - committed);
+    }
     humanSeats() {
       return this.state.players.filter(p => p.type === 'human').map(p => p.seat);
     }
@@ -332,6 +353,7 @@
         case 'offers:submit': return this._offers(action);
         case 'negotiate:respond': return this._respond(action);
         case 'counter:decide': return this._counter(action);
+        case 'negotiation:reveal': return this._reveal(action);
         case 'negotiation:timeout': return this._timeout();
         case 'chat': return this._chat(action);
         case 'emoji': return this._emoji(action);
@@ -363,28 +385,40 @@
       const p = actor;
       const kind = action.kind || 'enter';
 
-      if (kind === 'fold') {
+      if (kind === 'fold' || kind === 'pass') {
+        // «عدم الدخول» و«الانسحاب» كلاهما بلا خسارة، والدخول لا يتكرر
         p.folded = true; p.entry = null;
         a.acted[p.seat] = true;
-        a.history.push({ seat: p.seat, kind: 'fold', amount: 0 });
-        this.emit('bid', { seat: p.seat, kind: 'fold', amount: 0, text: p.name + ' انسحب من السوق' });
-      } else if (kind === 'pass') {
-        a.acted[p.seat] = true;
-        a.history.push({ seat: p.seat, kind: 'pass', amount: p.entry || 0 });
-        this.emit('bid', { seat: p.seat, kind: 'pass', amount: p.entry || 0, text: p.name + ' ثبّت على مكانه' });
+        a.history.push({ seat: p.seat, kind: kind, amount: 0 });
+        this.emit('bid', {
+          seat: p.seat, kind: kind, amount: 0,
+          text: p.name + (kind === 'fold' ? ' انسحب من السوق' : ' مرّر بلا دخول')
+        });
       } else {
+        const minimum = a.leaderId === null ? 0 : a.highest;  // أعلى مبلغ دخل به من سبقه
+        const balance = p.balance;
         let amount = intAmount(action.amount);
-        amount = Math.min(amount, p.balance);            // لا يجوز الدخول بأكثر من الرصيد
+        let allIn = false, raised = false;
+        if (balance < minimum) {
+          // الاستثناء الوحيد: من لا يملك أكثر من الحد الأدنى يدخل بكامل رصيده
+          amount = balance; allIn = true;
+        } else {
+          if (amount > balance) amount = balance;
+          if (amount < minimum) { amount = minimum; raised = true; }  // لا يصح النزول عن الحد
+        }
         p.entry = amount;
         p.folded = false;
         a.acted[p.seat] = true;
-        if (amount > a.highest || (a.leaderId === null && amount >= 0 && a.history.length === 0)) {
-          a.highest = amount; a.leaderId = p.seat; a.raisedInPass = true;
+        if (a.leaderId === null || amount > a.highest) {
+          a.highest = amount; a.leaderId = p.seat;
         }
-        a.history.push({ seat: p.seat, kind: 'enter', amount: amount });
+        a.history.push({ seat: p.seat, kind: 'enter', amount: amount, min: minimum, allIn: allIn });
         this.emit('bid', {
-          seat: p.seat, kind: 'enter', amount: amount,
-          text: p.name + ' دخل السوق بـ ' + fmt(amount)
+          seat: p.seat, kind: 'enter', amount: amount, min: minimum,
+          allIn: allIn, raised: raised,
+          text: p.name + ' دخل السوق بـ ' + fmt(amount) +
+            (allIn ? ' (كامل رصيده؛ لا يملك ' + fmt(minimum) + ')' :
+              raised ? ' (رُفع للحد الأدنى ' + fmt(minimum) + ')' : '')
         });
       }
       this._advanceAuction();
@@ -393,28 +427,19 @@
 
     _advanceAuction() {
       const st = this.state, a = st.auction;
+      // كل لاعب يتصرّف مرة واحدة فقط، ثم يُغلق السوق مباشرة
       let found = -1;
-      for (let i = 1; i <= a.order.length; i++) {
-        const pos = (a.turnPos + i) % a.order.length;
+      for (let pos = a.turnPos + 1; pos < a.order.length; pos++) {
         const seat = a.order[pos];
-        const p = st.players[seat];
-        if (!p.folded && !a.acted[seat]) { found = pos; break; }
+        if (!st.players[seat].folded && !a.acted[seat]) { found = pos; break; }
       }
-      // البحث يبدأ من التالي، لكن إن كان كل من بعده قد لعب نعود للأول
       if (found === -1) {
-        for (let pos = 0; pos < a.order.length; pos++) {
+        for (let pos = 0; pos <= a.turnPos; pos++) {
           const seat = a.order[pos];
           if (!st.players[seat].folded && !a.acted[seat]) { found = pos; break; }
         }
       }
       if (found !== -1) { a.turnPos = found; return; }
-
-      // انتهت الدورة
-      if (a.raisedInPass && a.passNo < a.maxPasses) {
-        a.passNo += 1; a.acted = {}; a.raisedInPass = false; a.turnPos = 0;
-        this.emit('log', { text: 'دورة مزايدة جديدة: من يرفع؟', tone: 'cyan' });
-        return;
-      }
       this._closeAuction();
     }
 
@@ -452,27 +477,39 @@
       return st;
     }
 
+    /** العروض الأولى، أو عروض جديدة في جولة تفاوض إضافية */
     _offers(action) {
       const st = this.state;
-      if (st.phase !== 'offers' || action.seat !== st.supervisorId) return st;
+      if ((st.phase !== 'offers' && st.phase !== 'counters') || action.seat !== st.supervisorId) return st;
       const sup = st.players[st.supervisorId];
-      const budget = Math.max(0, sup.entry || 0);   // من إجمالي ما دخل به (قد يكون 0)
+      const revised = st.phase === 'counters';
+      const budget = this.offerBudget();
+      const targets = revised ? this.unresolvedEntrants() : this.entrants().filter(p => p.seat !== st.supervisorId);
+      if (revised && (!targets.length || (st.offersRound || 0) >= MAX_OFFER_ROUNDS)) {
+        return this._reveal({ seat: st.supervisorId });
+      }
       const offers = {};
       let total = 0;
-      for (const p of this.entrants()) {
-        if (p.seat === st.supervisorId) continue;
+      for (const p of targets) {
         let v = intAmount((action.offers || {})[p.seat]);
         if (total + v > budget) v = Math.max(0, budget - total);
         offers[p.seat] = v; total += v;
+        p.response = null; p.counter = null; p.withdrawal = null;  // يُعاد فتح الرد
       }
-      st.offers = offers;
+      for (const seat in offers) st.offers[seat] = offers[seat];
+      st.offersRound = revised ? (st.offersRound || 1) + 1 : 1;
+      st.counterPending = [];
       st.phase = 'negotiation';
       const sec = intAmount(st.settings.negotiationSec);
       st.negotiationEndsAt = sec > 0 ? this.now() + sec * 1000 : 0;   // 0 = مفتوح
       st.stats.negotiations += 1;
       st.negotiationThisRound = true;
-      this.emit('phase', { phase: 'negotiation', endsAt: st.negotiationEndsAt });
-      this.emit('offers', { offers: offers, total: total, text: 'عروض الانسحاب: ' + fmt(total) + ' من أصل ' + fmt(budget) });
+      this.emit('phase', { phase: 'negotiation', endsAt: st.negotiationEndsAt, round: st.offersRound });
+      this.emit('offers', {
+        offers: offers, total: total, round: st.offersRound,
+        text: (revised ? '🔁 جولة تفاوض ' + st.offersRound + ' · عروض جديدة ' : 'عروض الانسحاب: ') +
+          fmt(total) + ' من أصل ' + fmt(budget)
+      });
       return st;
     }
 
@@ -487,28 +524,39 @@
       p.counter = choice === 'counter' ? intAmount(action.amount) : null;
       if (choice === 'accept') {
         p.withdrawal = { accepted: true, amount: intAmount(st.offers[seat]) };
-      } else if (choice === 'counter') {
-        p.withdrawal = null;
       } else {
-        p.withdrawal = null;  // رفض / إصرار على الكشف
+        p.withdrawal = null;   // رفض / تفاوض / إصرار → يبقى داخل المفارشة ما لم يُقنعه المشرّف
       }
       const words = { accept: 'قبل العرض وانسحب', reject: 'رفض العرض', counter: 'فاوض على ' + fmt(p.counter || 0), insist: 'أصرّ على الرفض وطلب كشف الأوراق' };
-      this.emit('respond', { seat: seat, choice: choice, amount: p.counter || 0, text: p.name + ' ' + words[choice] });
+      this.emit('respond', { seat: seat, choice: choice, amount: p.counter || 0, round: st.offersRound, text: p.name + ' ' + words[choice] });
       this._afterResponses();
       return st;
     }
 
     _afterResponses() {
       const st = this.state;
-      if (this.pendingResponses().length) return;
-      const counters = this.entrants().filter(p => p.response === 'counter');
-      if (counters.length) {
-        st.phase = 'counters';
-        st.counterPending = counters.map(p => p.seat);
-        this.emit('phase', { phase: 'counters' });
-      } else {
-        this._resolve([]);
-      }
+      if (this.pendingResponses().length) return;   // ما زال هناك من لم يرد
+      st.offersHistory.push({
+        round: st.offersRound || 1,
+        offers: Object.assign({}, st.offers),
+        responses: st.players.reduce((o, p) => {
+          if (p.entry !== null && !p.folded && p.seat !== st.supervisorId) {
+            o[p.seat] = { choice: p.response, amount: p.counter || 0 };
+          }
+          return o;
+        }, {})
+      });
+      const unresolved = this.unresolvedEntrants();
+      if (!unresolved.length) { this._resolve(); return; }
+      // لا يُفرش الورق تلقائياً: المشرّف يقرّر بين إعادة التفاوض أو تثبيت المعاندين
+      st.counterPending = unresolved.filter(p => p.response === 'counter').map(p => p.seat);
+      st.negotiationEndsAt = 0;
+      st.phase = 'counters';
+      this.emit('phase', { phase: 'counters', round: st.offersRound, unresolved: unresolved.map(p => p.seat) });
+      this.emit('log', {
+        text: '🔁 التفاوض مفتوح: أعد العرض حتى الرضى، أو افرش الأوراق وثبّت المعاندين',
+        tone: 'cyan'
+      });
     }
 
     _counter(action) {
@@ -518,14 +566,16 @@
       if (!st.counterPending || !st.counterPending.includes(seat)) return st;
       const p = st.players[seat];
       if (action.accept) {
-        p.withdrawal = { accepted: true, amount: p.counter || 0 };
+        const amount = Math.min(p.counter || 0, this.offerBudget());
+        p.withdrawal = { accepted: true, amount: amount };
         p.response = 'accept';
-        this.emit('respond', { seat: seat, choice: 'counterAccepted', amount: p.counter || 0, text: p.name + ' قَبِل التفاوض بـ ' + fmt(p.counter || 0) });
+        this.emit('respond', { seat: seat, choice: 'counterAccepted', amount: amount, text: p.name + ' قَبِل التفاوض بـ ' + fmt(amount) });
       } else {
-        this.emit('respond', { seat: seat, choice: 'counterRejected', amount: p.counter || 0, text: 'المشرّف رفض تفاوض ' + p.name });
+        p.response = 'reject'; p.withdrawal = null;
+        this.emit('respond', { seat: seat, choice: 'counterRejected', amount: p.counter || 0, text: 'المشرّف رفض تفاوض ' + p.name + ' ويمكنه إعادة العرض' });
       }
-      st.counterPending = st.counterPending.filter(s => s !== seat);
-      if (!st.counterPending.length) this._resolve([]);
+      st.counterPending = st.counterPending.filter(x => x !== seat);
+      if (!st.counterPending.length) this.emit('phase', { phase: 'counters', awaitingDecision: true });
       return st;
     }
 
@@ -538,9 +588,31 @@
         p.response = 'insist'; p.withdrawal = null; any = true;
         this.emit('respond', { seat: seat, choice: 'timeout', text: 'انتهى الوقت! ' + p.name + ' يُعتبر مُصرّاً على كشف الأوراق' });
       }
-      if (any) this.emit('log', { text: '⏱ انتهى وقت التفاوض', tone: 'red' });
+      if (any) this.emit('log', { text: '⏱ انتهى وقت جولة التفاوض ' + (st.offersRound || 1) + ' · للمشرّف إعادة العرض أو فرش الأوراق', tone: 'red' });
       this._afterResponses();
       return st;
+    }
+
+    /** «فرش الأوراق وتثبيت المعاندين» بقرار المشرّف في أي لحظة */
+    _reveal(action) {
+      const st = this.state;
+      if (['counters', 'negotiation', 'offers'].indexOf(st.phase) === -1) return st;
+      if (action && action.seat !== undefined && action.seat !== null && intAmount(action.seat) !== st.supervisorId) return st;
+      const sup = st.players[st.supervisorId];
+      for (const seat of this.pendingResponses()) {
+        const p = st.players[seat];
+        p.response = 'insist'; p.withdrawal = null;
+      }
+      const stubborn = this.unresolvedEntrants().map(p => p.seat);
+      st.counterPending = [];
+      st.negotiationEndsAt = 0;
+      this.emit('log', {
+        text: '🃏 ' + sup.name + ' فرش الأوراق وثبّت المعاندين' +
+          (stubborn.length ? ' (' + stubborn.map(x => st.players[x].name).join('، ') + ')' : ''),
+        tone: 'gold'
+      });
+      this.emit('reveal', { seats: stubborn, round: st.offersRound || 1 });
+      return this._resolve();
     }
 
     /* ---------------------- الحسم والتسوية المالية ---------------------- */
@@ -662,7 +734,7 @@
         evaluations: evals, contenders: contenders.map(p => p.seat),
         withdrawn: withdrawn.map(p => p.seat),
         settlements: settlements, winnerGain: winnerGain,
-        offersPaid: offersPaid, whaleTakedowns: whaleTakedowns,
+        offersPaid: offersPaid, negotiationRounds: st.offersRound || 0, whaleTakedowns: whaleTakedowns,
         mercySeats: mercySeats, suspendedSeats: suspendedSeats,
         before: before,
         totals: ent.reduce((s, p) => s + (p.entry || 0), 0),
@@ -731,7 +803,13 @@
       const seat = intAmount(action.seat);
       const p = st.players[seat];
       const emoji = String(action.emoji || '🔥').slice(0, 8);
-      this.emit('emoji', { seat: seat, emoji: emoji, name: p ? p.name : '' });
+      const msg = {
+        id: uid('e'), seat: seat, name: p ? p.name : '', avatar: p ? p.avatar : '👤',
+        text: emoji, emoji: true, at: this.now(), bot: false
+      };
+      st.chat.push(msg);
+      if (st.chat.length > 120) st.chat.shift();
+      this.emit('emoji', { seat: seat, emoji: emoji, name: p ? p.name : '', message: msg });
       return st;
     }
 
@@ -782,28 +860,22 @@
 
       if (st.phase === 'auction') {
         const a = st.auction;
+        const minimum = a.leaderId === null ? 0 : a.highest;
+        const balance = p.balance;
         const bluffing = rng() < per.bluff * (1.15 - hand.score);
         const targetWhale = st.players.some(q => q.seat !== seat && q.entry !== null && q.balance >= balance * 1.8 && q.entry >= 10000);
         let ratio = 0.02 + Math.pow(strength, 1.6) * (0.10 + per.aggression * 0.22);
         if (bluffing) ratio = Math.max(ratio, 0.10 + rng() * 0.22);
         if (targetWhale && rng() < 0.35 + diff.skill * 0.4 && per.aggression > 0.5) ratio = Math.max(ratio, 0.16 + rng() * 0.2);
         ratio *= (0.75 + rng() * 0.5);
-        let amount = roundTo(balance * ratio, 500);
-        amount = Math.min(amount, balance);
-
-        // لا حد أدنى للرفع: +1 عملة تكفي لانتزاع الصدارة
-        if (a.leaderId !== null && a.leaderId !== seat && amount <= a.highest) {
-          const wantLead = strength > 0.55 || bluffing || (targetWhale && rng() < 0.5);
-          if (wantLead && a.highest + 1 <= balance) {
-            amount = Math.min(balance, a.highest + Math.max(1, roundTo(balance * 0.01, 100)));
-          }
+        let amount = Math.min(balance, roundTo(balance * ratio, 500));
+        if (balance < minimum) {
+          amount = balance;                          // استثناء «كل الرصيد»
+        } else if (amount < minimum) {
+          amount = Math.min(balance, minimum + ((strength > 0.6 || bluffing) ? roundTo(balance * 0.02, 500) : 0));
         }
-        if (a.leaderId === seat && a.passNo > 1 && rng() > 0.25) return { type: 'bid', seat: seat, kind: 'pass' };
-
-        const weakFold = hand.score < 0.28 && a.highest > balance * 0.18 && !bluffing && rng() < (0.55 + per.aggression * -0.3);
-        if (weakFold && p.entry === null) return { type: 'bid', seat: seat, kind: 'fold' };
-        if (p.entry !== null && a.passNo > 1 && strength < 0.4 && rng() < 0.4) return { type: 'bid', seat: seat, kind: 'pass' };
-        if (amount === 0 && p.entry === null && rng() < 0.25) return { type: 'bid', seat: seat, kind: 'pass' };
+        const weakFold = hand.score < 0.28 && minimum > balance * 0.18 && !bluffing && rng() < (0.55 + per.aggression * -0.3);
+        if (weakFold || (balance === 0 && minimum > 0 && rng() < 0.6)) return { type: 'bid', seat: seat, kind: 'fold' };
         return { type: 'bid', seat: seat, kind: 'enter', amount: amount };
       }
 
@@ -816,16 +888,30 @@
         return { type: 'supervisor:choose', seat: seat, mode: 'negotiate' };
       }
 
-      if (st.phase === 'offers') {
-        const budget = Math.max(0, p.entry || 0);
-        const others = this.entrants().filter(q => q.seat !== seat);
-        const offers = {};
-        // المشرّف الضعيف يشتري الانسحابات، والقوي يحتفظ بالمال
-        const generous = clamp(0.25 + (1 - hand.score) * 0.6 + per.greed * 0.15, 0.1, 0.95);
+      if (st.phase === 'offers' || st.phase === 'counters') {
+        if (st.phase === 'counters') {
+          const pending = st.counterPending || [];
+          if (pending.length) {
+            const t = pending[0], q = st.players[t], asked = q.counter || 0;
+            const accept = hand.score < 0.5 && asked <= Math.max(0, p.entry || 0) * 0.6 && rng() < 0.55 + diff.skill * 0.3;
+            return { type: 'counter:decide', seat: seat, target: t, accept: accept };
+          }
+          const unresolved = this.unresolvedEntrants();
+          const rounds = st.offersRound || 1;
+          // بعد 3 جولات، أو مع يد قوية، يفرش البوت الأوراق ويثبّت المعاندين
+          if (!unresolved.length || rounds >= 3 || hand.score >= 0.55 || rng() < 0.45) {
+            return { type: 'negotiation:reveal', seat: seat };
+          }
+        }
+        const budget = this.offerBudget();
+        const targets = this.unresolvedEntrants();
+        const generous = clamp(0.25 + (1 - hand.score) * 0.6 + per.greed * 0.15 +
+          (st.phase === 'counters' ? 0.20 : 0), 0.1, 0.98);
         let left = Math.floor(budget * generous);
-        for (let i = 0; i < others.length; i++) {
-          const q = others[i];
-          const share = Math.floor(left / (others.length - i));
+        const offers = {};
+        for (let i = 0; i < targets.length; i++) {
+          const q = targets[i];
+          const share = Math.floor(left / (targets.length - i));
           const v = Math.max(0, Math.min(share, left));
           offers[q.seat] = v; left -= v;
         }
@@ -834,12 +920,13 @@
 
       if (st.phase === 'negotiation') {
         const offer = intAmount(st.offers[seat]);
+        const roundN = st.offersRound || 1;
         const fair = balance > 0 ? offer / Math.max(1000, p.entry || 1000) : 0;
         const strong = hand.score >= 0.6;
         if (strong && rng() < 0.65 + diff.skill * 0.3) {
           return { type: 'negotiate:respond', seat: seat, choice: rng() < 0.35 ? 'insist' : 'reject' };
         }
-        if (offer >= (p.entry || 0) * 0.5 || (fair > 0.35 && rng() < 0.6)) {
+        if (offer >= (p.entry || 0) * 0.5 || (fair > 0.35 && rng() < 0.6) || (roundN >= 3 && rng() < 0.65)) {
           return { type: 'negotiate:respond', seat: seat, choice: 'accept' };
         }
         if (rng() < 0.45 + diff.skill * 0.2) {
@@ -849,16 +936,6 @@
         return { type: 'negotiate:respond', seat: seat, choice: rng() < 0.5 ? 'reject' : 'insist' };
       }
 
-      if (st.phase === 'counters') {
-        const pending = st.counterPending || [];
-        if (!pending.length) return null;
-        const s = pending[0];
-        const q = st.players[s];
-        const asked = q.counter || 0;
-        const budget = Math.max(0, p.entry || 0);
-        const accept = hand.score < 0.5 && asked <= budget * 0.6 && rng() < 0.55 + diff.skill * 0.3;
-        return { type: 'counter:decide', seat: seat, target: s, accept: accept };
-      }
       return null;
     }
 

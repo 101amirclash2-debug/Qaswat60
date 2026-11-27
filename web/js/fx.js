@@ -75,16 +75,37 @@
   }
   function emoji(symbol, x, y, big) {
     const layer = doc.getElementById('emoji-layer');
-    if (!layer || !root.TijaraStore.settings().effects) return;
-    const el = doc.createElement('div');
-    el.className = 'float-emoji';
-    el.textContent = symbol;
-    el.style.left = Math.max(4, Math.min(root.innerWidth - 40, x - 18)) + 'px';
-    el.style.top = Math.max(4, Math.min(root.innerHeight - 40, y - 18)) + 'px';
-    el.style.fontSize = (big ? 46 : 34) + 'px';
-    el.style.setProperty('--dx', ((Math.random() - 0.5) * 90) + 'px');
-    layer.appendChild(el);
-    setTimeout(() => el.remove(), 2300);
+    if (!layer) return;
+    // الإيموجيات متحركة دائماً، حتى لو عُطّلت المؤثرات الإضافية في الإعدادات
+    const count = big ? 5 : 3;
+    for (let i = 0; i < count; i++) {
+      const el = doc.createElement('div');
+      el.className = 'float-emoji' + (i === 0 ? ' main' : ' spark');
+      el.textContent = symbol;
+      const dx = Math.round((Math.random() - 0.5) * 140);
+      const dy = -(190 + Math.random() * 70);
+      const ox = i ? Math.round((Math.random() - 0.5) * 70) : 0;
+      const oy = i ? Math.round((Math.random() - 0.5) * 26) : 0;
+      el.style.fontSize = Math.max(17, (big ? 54 : 40) - i * 7) + 'px';
+      el.style.left = Math.max(4, Math.min(root.innerWidth - 48, x - 22 + ox)) + 'px';
+      el.style.top = Math.max(4, Math.min(root.innerHeight - 48, y - 22 + oy)) + 'px';
+      el.style.setProperty('--dx', dx + 'px');
+      el.style.animationDelay = (i * 95) + 'ms';
+      layer.appendChild(el);
+      // حركة مضمونة عبر Web Animations API حتى لو لم تُطبّق أنيميشن CSS في WebView
+      if (typeof el.animate === 'function') {
+        try {
+          el.animate([
+            { opacity: 0, transform: 'translate(0px,0px) scale(.3) rotate(-25deg)' },
+            { opacity: 1, transform: 'translate(0px,-28px) scale(1.3) rotate(14deg)', offset: 0.16 },
+            { opacity: 1, transform: 'translate(' + (dx * 0.5) + 'px,-115px) scale(1.05) rotate(190deg)', offset: 0.62 },
+            { opacity: 0, transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.75) rotate(375deg)' }
+          ], { duration: 2050 + i * 130, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'forwards' });
+          el.style.animation = 'none';     // WAAPI يتولى الحركة، وتبقى حلقة ::after عبر CSS
+        } catch (e) { /* يبقى أنيميشن CSS بديلاً */ }
+      }
+      setTimeout(() => el.remove(), 2700 + i * 130);
+    }
   }
   function emojiAtSeat(symbol, seat, big) {
     const el = doc.querySelector('.seat[data-seat="' + seat + '"] .seat-avatar') ||
@@ -97,8 +118,8 @@
     const av = doc.querySelector('.seat[data-seat="' + seat + '"] .seat-avatar');
     if (av) {
       const b = doc.createElement('span');
-      b.className = 'seat-emoji'; b.textContent = symbol;
-      av.appendChild(b); setTimeout(() => b.remove(), 2500);
+      b.className = 'seat-emoji animated'; b.textContent = symbol;
+      av.appendChild(b); setTimeout(() => b.remove(), 2600);
     }
   }
   function toast(text, type) {
